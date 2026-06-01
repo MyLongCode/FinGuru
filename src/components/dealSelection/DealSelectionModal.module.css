@@ -192,6 +192,52 @@
   }
 }
 
+@media (max-width: 420px) {
+  .card {
+    min-width: 280px;
+    width: 280px;
+    height: 460px;
+    padding: 16px;
+  }
+
+  .iconSmall {
+    width: 160px;
+    height: 160px;
+  }
+
+  .iconBig {
+    width: 200px;
+    height: 200px;
+  }
+
+  .glow {
+    width: 140px;
+    height: 140px;
+  }
+
+  .textArea {
+    width: 100%;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+
+  .description {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .button {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .carousel {
+    padding: 4px calc((100vw - 280px) / 2);
+  }
+}
+
 @media (min-width: 800px) {
   .dots {
     display: none;

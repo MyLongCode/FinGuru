@@ -1,3 +1,19 @@
+.footer {
+  padding: 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
 .roleSelect {
   font-size: 18px;
   padding: 8px 14px;
