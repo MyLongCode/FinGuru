@@ -1,0 +1,5 @@
+services:
+  finguru:
+    build: .
+    ports:
+      - "8080:80"

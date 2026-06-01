@@ -1,0 +1,148 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.card {
+  width: 366px;
+  height: 603px;
+  border-radius: 24px;
+  padding: 20px 24px;
+  background: linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #4B9100;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.title {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 28px;
+  text-align: left;
+  color: #fff;
+  margin: 0;
+}
+
+.description {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 25px;
+  letter-spacing: -3%;
+  text-align: left;
+  color: #fff;
+  margin: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+}
+
+.headerRight {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.headerLabel {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -1%;
+  color: #fff;
+  margin: 0;
+  margin-right: auto;
+}
+
+.headerAmount {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -1%;
+  color: #fff;
+  margin: 0;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.detailRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.detailLabel {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 25px;
+  letter-spacing: -3%;
+  color: #fff;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.detailValue {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 25px;
+  letter-spacing: -3%;
+  color: #fff;
+  margin: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.button {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -1%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 24px;
+  padding: 10px 16px;
+  width: 318px;
+  align-self: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.button:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.button:active {
+  background: rgba(0, 0, 0, 0.4);
+}

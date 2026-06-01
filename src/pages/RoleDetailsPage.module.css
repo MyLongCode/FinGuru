@@ -1,0 +1,257 @@
+.page {
+  width: 100%;
+  max-width: 1440px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: #fff;
+  padding: 60px 100px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+  font-family: 'Montserrat Alternates', sans-serif;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.icon {
+  width: 110px;
+  height: 110px;
+  flex-shrink: 0;
+}
+
+.roleTitle {
+  font-weight: 600;
+  font-size: 52px;
+  letter-spacing: -1%;
+  color: #000;
+  margin: 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  width: 100%;
+  max-width: 1240px;
+}
+
+.table {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: 60px;
+}
+
+.sectionLabel {
+  grid-column: 1;
+  font-weight: 600;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  align-self: start;
+  color: #000;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.itemRow,
+.itemRowLast {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.itemRowLast {
+  border-bottom: none;
+}
+
+.itemName {
+  font-weight: 500;
+  font-size: 18px;
+  color: #000;
+  text-align: left;
+}
+
+.itemAmount {
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.totalCell {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  white-space: nowrap;
+}
+
+.totalLabel {
+  font-weight: 600;
+  font-size: 24px;
+}
+
+.totalAmount {
+  font-weight: 600;
+  font-size: 24px;
+}
+
+.sectionSpacer {
+  grid-column: 1 / -1;
+  height: 24px;
+}
+
+.cashFlowSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 20px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.cashFlowLabel {
+  font-weight: 500;
+  font-size: 28px;
+  color: #000;
+  margin: 0;
+}
+
+.cashFlowAmount {
+  font-weight: 600;
+  font-size: 36px;
+  color: #5856D6;
+  margin: 0;
+  text-align: right;
+  width: 463px;
+  flex-shrink: 0;
+}
+
+.startButton {
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  color: #fff;
+  background: #5856D6;
+  border: none;
+  border-radius: 26px;
+  padding: 8px 24px;
+  width: fit-content;
+  min-width: 200px;
+  height: 48px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  align-self: flex-start;
+  letter-spacing: -0.5%;
+}
+
+.startButton:hover {
+  opacity: 0.85;
+}
+
+.startButton:active {
+  opacity: 0.75;
+}
+
+@media (max-width: 799px) {
+  .page {
+    padding: 32px 16px 60px;
+    gap: 40px;
+  }
+
+  .header {
+    gap: 16px;
+  }
+
+  .icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .roleTitle {
+    font-size: 32px;
+  }
+
+  .content {
+    gap: 40px;
+  }
+
+  .table {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .sectionLabel {
+    grid-column: 1;
+    padding: 12px 0 4px;
+    font-size: 20px;
+  }
+
+  .itemRow,
+  .itemRowLast {
+    grid-column: 1;
+    padding: 6px 12px;
+    font-size: 16px;
+  }
+
+  .itemName {
+    font-size: 16px;
+  }
+
+  .itemAmount {
+    font-size: 16px;
+  }
+
+  .totalCell {
+    grid-column: 1;
+    padding: 8px 12px;
+    justify-content: flex-end;
+  }
+
+  .totalLabel {
+    font-size: 18px;
+  }
+
+  .totalAmount {
+    font-size: 18px;
+  }
+
+  .cashFlowSection {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .cashFlowLabel {
+    font-size: 22px;
+  }
+
+  .cashFlowAmount {
+    text-align: left;
+    width: auto;
+    font-size: 28px;
+  }
+
+  .startButton {
+    width: 100%;
+    text-align: center;
+  }
+}
