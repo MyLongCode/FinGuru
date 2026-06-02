@@ -13,17 +13,34 @@ export const SECTOR_COLORS = {
 } as const
 
 export const sectors: SectorConfig[] = [
+  {label: 'Всячина', color: SECTOR_COLORS.other},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Ребёнок', color: SECTOR_COLORS.event},
   {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
   {label: 'Зарплата', color: SECTOR_COLORS.salary},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
   {label: 'Рынок', color: SECTOR_COLORS.shop},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
   {label: 'Всячина', color: SECTOR_COLORS.other},
-  {label: 'Ребёнок', color: SECTOR_COLORS.event},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
   {label: 'Увольнение', color: SECTOR_COLORS.negative},
-  {label: 'Дивиденды', color: SECTOR_COLORS.salary},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Зарплата', color: SECTOR_COLORS.salary},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Рынок', color: SECTOR_COLORS.shop},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Всячина', color: SECTOR_COLORS.other},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
   {label: 'Благотворительность', color: SECTOR_COLORS.other},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Зарплата', color: SECTOR_COLORS.salary},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  {label: 'Рынок', color: SECTOR_COLORS.shop},
+  {label: 'Крупная/Мелкая Сделка', color: SECTOR_COLORS.deal},
+  // {label: 'Дивиденды', color: SECTOR_COLORS.salary},
 ]
 
-export const SECTOR_COUNT = 36
+export const SECTOR_COUNT = 24
 
 export const sectorColorMap: Record<string, string> = Object.fromEntries(
   sectors.map(s => [s.label, s.color])

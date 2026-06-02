@@ -55,15 +55,18 @@ function ringPath(innerR: number, outerR: number): string {
   ].join(' ')
 }
 
+const LABEL_R = SECTOR_RADIUS * 0.72
+const LABEL_WIDTH = 120
+const LABEL_HEIGHT = 36
+
 function Sector({ index }: { index: number }) {
   const { color, label } = sectors[index % sectors.length]
   const startAngle = index * SECTOR_ANGLE
   const endAngle = (index + 1) * SECTOR_ANGLE
   const midAngle = (startAngle + endAngle) / 2
   const midRad = ((midAngle - 90) * Math.PI) / 180
-  const labelR = SECTOR_RADIUS * 0.78
-  const lx = CX + labelR * Math.cos(midRad)
-  const ly = CY + labelR * Math.sin(midRad)
+  const lx = CX + LABEL_R * Math.cos(midRad)
+  const ly = CY + LABEL_R * Math.sin(midRad)
   const rotation = midAngle - 90
 
   return (
@@ -71,24 +74,60 @@ function Sector({ index }: { index: number }) {
       <path
         d={sectorPath(startAngle, endAngle, SECTOR_RADIUS)}
         fill={color}
-        stroke="white"
-        strokeWidth={1.5}
       />
-      <text
-        x={lx}
-        y={ly}
+      <foreignObject
+        x={lx - LABEL_WIDTH / 2}
+        y={ly - LABEL_HEIGHT / 2}
+        width={LABEL_WIDTH}
+        height={LABEL_HEIGHT}
         transform={`rotate(${rotation}, ${lx}, ${ly})`}
-        fill="white"
-        fontSize="9"
-        fontWeight="800"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontFamily="'Montserrat Alternates', sans-serif"
-        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
       >
-        {label}
-      </text>
+        <div
+          // xmlns="http://www.w3.org/1999/xhtml"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            color: 'white',
+            fontSize: '9px',
+            fontWeight: 800,
+            fontFamily: "'Montserrat Alternates', sans-serif",
+            textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            lineHeight: 1.2,
+          }}
+        >
+          {label}
+        </div>
+      </foreignObject>
     </g>
+  )
+}
+
+function BoundaryShadow({ index }: { index: number }) {
+  const boundaryAngle = (index + 1) * SECTOR_ANGLE
+  const shadowStart = boundaryAngle - 0.5
+  const shadowEnd = boundaryAngle
+  return (
+    <path
+      d={sectorPath(shadowStart, shadowEnd, SECTOR_RADIUS)}
+      fill="rgba(0, 0, 0, 0.45)"
+    />
+  )
+}
+
+function BoundaryHighlight({ index }: { index: number }) {
+  const highlightAngle = index * SECTOR_ANGLE
+  const highlightEnd = highlightAngle + 0.5
+  return (
+    <path
+      d={sectorPath(highlightAngle, highlightEnd, SECTOR_RADIUS)}
+      fill="rgba(255, 255, 255, 0.35)"
+    />
   )
 }
 
@@ -132,7 +171,7 @@ export default function GameBoard({
           <circle
             cx={mx}
             cy={my}
-            r={isActive ? 9 : 8}
+            r={isActive ? 11 : 10}
             fill={group[j].color}
             stroke="white"
             strokeWidth={isActive ? 2.5 : 2}
@@ -142,7 +181,7 @@ export default function GameBoard({
             x={mx}
             y={my}
             fill="white"
-            fontSize={isActive ? 10 : 8}
+            fontSize={isActive ? 12 : 10}
             fontWeight="800"
             textAnchor="middle"
             dominantBaseline="central"
@@ -192,10 +231,24 @@ export default function GameBoard({
               <clipPath id="centerClip">
                 <circle cx={CX} cy={CY} r={CENTER_RADIUS} />
               </clipPath>
+              <radialGradient id="glareGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="white" stopOpacity="0.2" />
+                <stop offset="60%" stopColor="white" stopOpacity="0.04" />
+                <stop offset="100%" stopColor="black" stopOpacity="0" />
+              </radialGradient>
+
             </defs>
 
             <g filter="url(#wheelShadow)">
               {sectorElements}
+
+              <circle cx={CX} cy={CY} r={SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
+              {Array.from({ length: SECTOR_COUNT }, (_, i) => (
+                <BoundaryShadow key={`bs-${i}`} index={i} />
+              ))}
+              {Array.from({ length: SECTOR_COUNT }, (_, i) => (
+                <BoundaryHighlight key={`bh-${i}`} index={i} />
+              ))}
 
               <path
                 d={ringPath(RING_INNER, RING_OUTER)}
