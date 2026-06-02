@@ -327,8 +327,10 @@ export default function GameBoard({
             </defs>
 
             <g
-              transform={`translate(${CX}, ${CY}) scale(${outerScale}) translate(${-CX}, ${-CY})`}
-              style={{ transition: 'transform 0.4s ease' }}
+              style={{
+                transform: `matrix(${outerScale}, 0, 0, ${outerScale}, ${CX * (1 - outerScale)}, ${CY * (1 - outerScale)})`,
+                transition: 'transform 0.4s ease',
+              }}
             >
               {innerSectorElements}
 
