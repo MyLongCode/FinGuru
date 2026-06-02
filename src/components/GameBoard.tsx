@@ -9,7 +9,7 @@ const CY = 310
 const VIEWBOX = 620
 const SECTOR_RADIUS = 258
 const RING_INNER = 258
-const RING_OUTER = 278
+const RING_OUTER = 300
 const CENTER_RADIUS = 70
 
 export interface PlayerMarker {
@@ -83,7 +83,6 @@ function Sector({ index }: { index: number }) {
         transform={`rotate(${rotation}, ${lx}, ${ly})`}
       >
         <div
-          // xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: '100%',
             height: '100%',
@@ -239,7 +238,7 @@ export default function GameBoard({
 
             </defs>
 
-            <g filter="url(#wheelShadow)">
+            <g>
               {sectorElements}
 
               <circle cx={CX} cy={CY} r={SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
