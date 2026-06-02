@@ -40,6 +40,33 @@ export const sectors: SectorConfig[] = [
   // {label: 'Дивиденды', color: SECTOR_COLORS.salary},
 ]
 
+export const bigSectors: SectorConfig[] = [
+  {label: 'Штраф', color: SECTOR_COLORS.other},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Свадьба', color: SECTOR_COLORS.event},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Повышение', color: SECTOR_COLORS.salary},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Производство', color: SECTOR_COLORS.shop},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Авария', color: SECTOR_COLORS.other},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Банкротство', color: SECTOR_COLORS.negative},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Инвестиции', color: SECTOR_COLORS.salary},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Производство', color: SECTOR_COLORS.shop},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Налог', color: SECTOR_COLORS.other},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Благотв. Фонд', color: SECTOR_COLORS.other},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Премия', color: SECTOR_COLORS.salary},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+  {label: 'Сырьё', color: SECTOR_COLORS.shop},
+  {label: 'Гос. Заказ', color: SECTOR_COLORS.deal},
+]
+
 export const SECTOR_COUNT = 24
 
 export const sectorColorMap: Record<string, string> = Object.fromEntries(

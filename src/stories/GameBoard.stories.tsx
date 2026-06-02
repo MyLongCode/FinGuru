@@ -19,6 +19,12 @@ export const Default: Story = {
       { id: 'p5', color: '#FF9500', letter: 'П', name: 'Пётр', cellIndex: 12 },
       { id: 'p6', color: '#00C7BE', letter: 'Е', name: 'Елена', cellIndex: 12 },
     ],
+    bigSectorPlayers: [
+      { id: 'o1', color: '#FF3B30', letter: 'A', cellIndex: 0 },
+      { id: 'o2', color: '#007AFF', letter: 'B', cellIndex: 12 },
+      { id: 'o3', color: '#34C759', letter: 'C', cellIndex: 24 },
+      { id: 'o4', color: '#AF52DE', letter: 'D', cellIndex: 36 },
+    ],
     currentPlayerId: 'p3',
     activeTab: 'small',
   },
