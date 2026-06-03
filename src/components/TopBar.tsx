@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import styles from './TopBar.module.css'
 import { bigSectors, type SectorConfig } from '../data/gameBoard'
@@ -54,6 +54,8 @@ const variantByColorName: Record<string, TopBarCardVariant> = {
 }
 const DEFAULT_SECTOR_LABEL = 'Стоимость'
 const DEFAULT_SECTOR_VALUE = '100 000 ₽'
+const DEFAULT_DREAM_COLOR = '#30B0C7'
+const DEFAULT_PLAYER_COLOR = '#32ADE6'
 
 const hasOwn = (obj: Record<number, unknown> | undefined, key: number): boolean =>
   obj !== undefined && Object.prototype.hasOwnProperty.call(obj, key)
@@ -94,7 +96,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-function Card({ item }: { item: TopBarItem }) {
+const Card = memo(function Card({ item }: { item: TopBarItem }) {
   const style: CSSProperties = { background: grads[item.variant] }
   const titleClass = `${styles.title}${item.bigTitle ? ` ${styles.titleBig}` : ''}`
   return (
@@ -108,18 +110,19 @@ function Card({ item }: { item: TopBarItem }) {
       )}
     </div>
   )
-}
+})
 
-function DreamIcon({ dream }: { dream: TopBarDream }) {
-  const color = dream.color ?? '#30B0C7'
+const DreamIcon = memo(function DreamIcon({ dream }: { dream: TopBarDream }) {
+  const color = dream.color ?? DEFAULT_DREAM_COLOR
   return <div className={styles.dreamIcon} style={{ borderColor: color }} />
-}
+})
 
-function DreamMarker({ dream }: { dream: TopBarDream }) {
-  const color = dream.color ?? '#30B0C7'
+const DreamMarker = memo(function DreamMarker({ dream }: { dream: TopBarDream }) {
+  const color = dream.color ?? DEFAULT_DREAM_COLOR
+  const bgColor = hexToRgba(color, 0.1)
   return (
     <div className={styles.dreamDesktop}>
-      <div className={styles.dreamBg} style={{ backgroundColor: hexToRgba(color, 0.1) }} />
+      <div className={styles.dreamBg} style={{ backgroundColor: bgColor }} />
       <div className={styles.dreamMarker}>
         <div className={styles.dreamRing} style={{ borderColor: color }} />
         <span className={styles.dreamLabel}>МЕЧТА ИГРОКА</span>
@@ -127,26 +130,26 @@ function DreamMarker({ dream }: { dream: TopBarDream }) {
       </div>
     </div>
   )
-}
+})
 
-function PlayerIcon({ player }: { player: TopBarPlayer }) {
-  const bg = player.color ?? '#32ADE6'
+const PlayerIcon = memo(function PlayerIcon({ player }: { player: TopBarPlayer }) {
+  const bg = player.color ?? DEFAULT_PLAYER_COLOR
   const initial = player.name.trim().charAt(0).toUpperCase() || '?'
   return (
     <div className={styles.playerIcon} style={{ background: bg }}>
       <span className={styles.playerIconLetter}>{initial}</span>
     </div>
   )
-}
+})
 
-function PlayerAvatar({ player }: { player: TopBarPlayer }) {
-  const bg = player.color ?? '#32ADE6'
+const PlayerAvatar = memo(function PlayerAvatar({ player }: { player: TopBarPlayer }) {
+  const bg = player.color ?? DEFAULT_PLAYER_COLOR
   return (
     <div className={styles.playerAvatar} style={{ background: bg }}>
       <span className={styles.playerName}>{player.name}</span>
     </div>
   )
-}
+})
 
 interface LayoutMetrics {
   firstItemCenter: number
@@ -182,12 +185,19 @@ export default function TopBar({
   const N = finalItems.length
   const safeInitialIndex = N > 0 ? ((Math.trunc(initialIndex) % N) + N) % N : 0
   const copies = infinite && N > 0 ? COPIES : 1
-  const renderedItems: TopBarItem[] = []
-  for (let c = 0; c < copies; c++) {
-    for (let i = 0; i < N; i++) {
-      renderedItems.push(finalItems[i])
+  const renderedItems = useMemo<TopBarItem[]>(() => {
+    const arr: TopBarItem[] = []
+    for (let c = 0; c < copies; c++) {
+      for (let i = 0; i < N; i++) {
+        arr.push(finalItems[i])
+      }
     }
-  }
+    return arr
+  }, [finalItems, copies, N])
+
+  const setItemRef = useCallback((i: number) => (el: HTMLDivElement | null) => {
+    itemRefs.current[i] = el
+  }, [])
 
   const measureLayout = (): LayoutMetrics | null => {
     const first = itemRefs.current[0]
@@ -300,9 +310,7 @@ export default function TopBar({
     <div ref={containerRef} className={styles.container}>
       {renderedItems.map((item, i) => (
         <div
-          ref={(el) => {
-            itemRefs.current[i] = el
-          }}
+          ref={setItemRef(i)}
           className={styles.itemWrapper}
           key={i}
         >

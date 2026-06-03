@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import styles from './GameBoard.module.css'
 import centerImage from '../assets/GameBoard.png'
 import { sectors, bigSectors, SECTOR_COUNT } from '../data/gameBoard'
@@ -79,8 +79,85 @@ function ringPath(innerR: number, outerR: number): string {
 
 const LABEL_WIDTH = 110
 const LABEL_HEIGHT = 36
+const SPREAD = 3.5
 
-function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL }: { index: number; outer?: boolean; outerRadius?: number }) {
+const SECTOR_LABEL_STYLE: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  color: 'white',
+  fontSize: '9px',
+  fontWeight: 800,
+  fontFamily: "'Montserrat Alternates', sans-serif",
+  textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+  wordWrap: 'break-word',
+  overflowWrap: 'break-word',
+  lineHeight: 1.2,
+}
+
+const PLAYER_CIRCLE_BASE_STYLE: CSSProperties = { transition: 'all 0.3s ease' }
+
+function buildPlayerMarkers(
+  playerList: PlayerMarker[],
+  markerR: number,
+  sectorAngle: number,
+  markerScale: number,
+  currentPlayerId: string | undefined,
+): ReactNode[] {
+  const groups = new Map<number, PlayerMarker[]>()
+  for (const player of playerList) {
+    const key = player.cellIndex ?? -1
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(player)
+  }
+
+  const markers: ReactNode[] = []
+  for (const [, group] of groups) {
+    const baseAngle = group[0].cellIndex != null
+      ? group[0].cellIndex * sectorAngle + sectorAngle / 2
+      : 0
+    const n = group.length
+
+    for (let j = 0; j < n; j++) {
+      const offset = n === 1 ? 0 : ((j - (n - 1) / 2) * SPREAD)
+      const angle = baseAngle + offset
+      const [mx, my] = polarToCartesian(CX, CY, markerR, angle)
+      const isActive = group[j].id === currentPlayerId
+
+      markers.push(
+        <g key={`${group[j].id}-${markerR}`}>
+          <circle
+            cx={mx}
+            cy={my}
+            r={(isActive ? 11 : 10) * markerScale}
+            fill={group[j].color}
+            stroke="white"
+            strokeWidth={(isActive ? 2.5 : 2) * markerScale}
+            style={PLAYER_CIRCLE_BASE_STYLE}
+          />
+          <text
+            x={mx}
+            y={my}
+            fill="white"
+            fontSize={(isActive ? 12 : 10) * markerScale}
+            fontWeight="800"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily="'Montserrat Alternates', sans-serif"
+          >
+            {group[j].letter}
+          </text>
+        </g>,
+      )
+    }
+  }
+  return markers
+}
+
+const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL }: { index: number; outer?: boolean; outerRadius?: number }) {
   const configArray = outer ? bigSectors : sectors
   const { color, label } = configArray[index % configArray.length]
   const angle = outer ? BIG_SECTOR_ANGLE : SECTOR_ANGLE
@@ -112,33 +189,16 @@ function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL }: { inde
           height={LABEL_HEIGHT}
           transform={`rotate(${rotation}, ${lx}, ${ly})`}
         >
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              color: 'white',
-              fontSize: '9px',
-              fontWeight: 800,
-              fontFamily: "'Montserrat Alternates', sans-serif",
-              textShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              wordWrap: 'break-word',
-              overflowWrap: 'break-word',
-              lineHeight: 1.2,
-            }}
-          >
+          <div style={SECTOR_LABEL_STYLE}>
             {label}
           </div>
         </foreignObject>
       )}
     </g>
   )
-}
+})
 
-function InnerBoundaryShadow({ index }: { index: number }) {
+const InnerBoundaryShadow = memo(function InnerBoundaryShadow({ index }: { index: number }) {
   const boundaryAngle = (index + 1) * SECTOR_ANGLE
   const shadowStart = boundaryAngle - 0.5
   const shadowEnd = boundaryAngle
@@ -148,9 +208,9 @@ function InnerBoundaryShadow({ index }: { index: number }) {
       fill="rgba(0, 0, 0, 0.45)"
     />
   )
-}
+})
 
-function InnerBoundaryHighlight({ index }: { index: number }) {
+const InnerBoundaryHighlight = memo(function InnerBoundaryHighlight({ index }: { index: number }) {
   const highlightAngle = index * SECTOR_ANGLE
   const highlightEnd = highlightAngle + 0.5
   return (
@@ -159,7 +219,7 @@ function InnerBoundaryHighlight({ index }: { index: number }) {
       fill={"rgba(255, 255, 255, 0.35)"}
     />
   )
-}
+})
 
 export default function GameBoard({
   players = [],
@@ -182,98 +242,50 @@ export default function GameBoard({
     return () => mql.removeEventListener('change', update)
   }, [])
   const tab = onTabChange ? activeTab : internalTab
-  const handleTabChange = (t: 'small' | 'big') => {
+  const handleTabChange = useCallback((t: 'small' | 'big') => {
     if (onTabChange) onTabChange(t)
     else setInternalTab(t)
-  }
+  }, [onTabChange])
   const outerScale = tab === 'big' ? OUTER_SECTOR_RADIUS_BIG / OUTER_SECTOR_RADIUS_FULL : 1
   const outerSectorRadiusFull = tab === 'small' ? OUTER_SECTOR_RADIUS_FULL * 2 : OUTER_SECTOR_RADIUS_FULL
   const outerRingInner = outerSectorRadiusFull + 10
   const outerRingOuter = outerSectorRadiusFull + 40
-  const innerSectorElements: ReactNode[] = []
-  const outerSectorElements: ReactNode[] = []
-  for (let i = 0; i < SECTOR_COUNT; i++) {
-    innerSectorElements.push(
+  const outerMarkerR = (outerRingInner + outerRingOuter) / 2
+  const innerMarkerR = (RING_INNER + RING_OUTER) / 2
+  const outerMarkerScale = tab === 'big' ? 2.5 : 1
+
+  const innerSectorElements = useMemo<ReactNode[]>(
+    () => Array.from({ length: SECTOR_COUNT }, (_, i) => (
       <Sector key={`in-${i}`} index={i} />
-    )
-  }
-  for (let i = 0; i < BIG_SECTOR_COUNT; i++) {
-    outerSectorElements.push(
+    )),
+    [],
+  )
+
+  const outerSectorElements = useMemo<ReactNode[]>(
+    () => Array.from({ length: BIG_SECTOR_COUNT }, (_, i) => (
       <Sector key={`out-${i}`} index={i} outer outerRadius={outerSectorRadiusFull} />
-    )
-  }
+    )),
+    [outerSectorRadiusFull],
+  )
 
-  const SPREAD = 3.5
-  const OUTER_MARKER_R = (outerRingInner + outerRingOuter) / 2
+  const innerPlayerMarkers = useMemo<ReactNode[]>(
+    () => buildPlayerMarkers(players, innerMarkerR, SECTOR_ANGLE, 1, currentPlayerId),
+    [players, currentPlayerId, innerMarkerR],
+  )
 
-  function renderPlayerMarkers(
-    playerList: PlayerMarker[],
-    markerR: number,
-    sectorAngle: number,
-    markerScale = 1,
-  ): ReactNode[] {
-    const groups = new Map<number, typeof playerList>()
-    for (const player of playerList) {
-      const key = player.cellIndex ?? -1
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(player)
-    }
-
-    const markers: ReactNode[] = []
-    for (const [, group] of groups) {
-      const baseAngle = group[0].cellIndex != null
-        ? group[0].cellIndex * sectorAngle + sectorAngle / 2
-        : 0
-      const n = group.length
-
-      for (let j = 0; j < n; j++) {
-        const offset = n === 1 ? 0 : ((j - (n - 1) / 2) * SPREAD)
-        const angle = baseAngle + offset
-        const [mx, my] = polarToCartesian(CX, CY, markerR, angle)
-        const isActive = group[j].id === currentPlayerId
-
-        markers.push(
-          <g key={`${group[j].id}-${markerR}`}>
-            <circle
-              cx={mx}
-              cy={my}
-              r={(isActive ? 11 : 10) * markerScale}
-              fill={group[j].color}
-              stroke="white"
-              strokeWidth={(isActive ? 2.5 : 2) * markerScale}
-              style={{ transition: 'all 0.3s ease' }}
-            />
-            <text
-              x={mx}
-              y={my}
-              fill="white"
-              fontSize={(isActive ? 12 : 10) * markerScale}
-              fontWeight="800"
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontFamily="'Montserrat Alternates', sans-serif"
-            >
-              {group[j].letter}
-            </text>
-          </g>
-        )
-      }
-    }
-    return markers
-  }
-
-  const innerPlayerMarkers = renderPlayerMarkers(players, (RING_INNER + RING_OUTER) / 2, SECTOR_ANGLE)
-  const outerPlayerMarkers = renderPlayerMarkers(bigSectorPlayers, OUTER_MARKER_R, BIG_SECTOR_ANGLE, tab === 'big' ? 2.5 : 1)
+  const outerPlayerMarkers = useMemo<ReactNode[]>(
+    () => buildPlayerMarkers(bigSectorPlayers, outerMarkerR, BIG_SECTOR_ANGLE, outerMarkerScale, currentPlayerId),
+    [bigSectorPlayers, currentPlayerId, outerMarkerR, outerMarkerScale],
+  )
 
   const outerDreamMarkers = useMemo<ReactNode[]>(() => {
-    const markerScale = tab === 'big' ? 2.5 : 1
-    const r = 11 * markerScale
-    const stroke = 3 * markerScale
+    const r = 11 * outerMarkerScale
+    const stroke = 3 * outerMarkerScale
     return bigSectorDreams
       .filter((d) => d.cellIndex >= 0)
       .map((dream) => {
         const angle = dream.cellIndex * BIG_SECTOR_ANGLE + BIG_SECTOR_ANGLE / 2
-        const [mx, my] = polarToCartesian(CX, CY, OUTER_MARKER_R, angle)
+        const [mx, my] = polarToCartesian(CX, CY, outerMarkerR, angle)
         const color = dream.color ?? '#30B0C7'
         return (
           <g key={`dream-${dream.cellIndex}`}>
@@ -288,7 +300,7 @@ export default function GameBoard({
           </g>
         )
       })
-  }, [bigSectorDreams, tab])
+  }, [bigSectorDreams, outerMarkerScale, outerMarkerR])
 
   const topBarSectors = useMemo(
     () => Array.from({ length: BIG_SECTOR_COUNT }, (_, i) => bigSectors[i % bigSectors.length]),
@@ -319,21 +331,22 @@ export default function GameBoard({
     return result
   }, [bigSectorDreams])
 
-  const highlightRange = isMobile ? 1 : 2
-  const highlightStart = (activeIndex - highlightRange + BIG_SECTOR_COUNT) % BIG_SECTOR_COUNT
-  const highlightEnd = (activeIndex + highlightRange) % BIG_SECTOR_COUNT
-  const isInHighlight = (i: number): boolean =>
-    highlightStart <= highlightEnd
-      ? i >= highlightStart && i <= highlightEnd
-      : i >= highlightStart || i <= highlightEnd
-  const outerDarkenElements: ReactNode[] = []
-  const outerHighlightBorders: ReactNode[] = []
-  if (tab === 'big') {
+  const outerOverlay = useMemo<ReactNode[]>(() => {
+    if (tab !== 'big') return []
+    const highlightRange = isMobile ? 1 : 2
+    const highlightStart = (activeIndex - highlightRange + BIG_SECTOR_COUNT) % BIG_SECTOR_COUNT
+    const highlightEnd = (activeIndex + highlightRange) % BIG_SECTOR_COUNT
+    const isInHighlight = (i: number): boolean =>
+      highlightStart <= highlightEnd
+        ? i >= highlightStart && i <= highlightEnd
+        : i >= highlightStart || i <= highlightEnd
+    const darkenElements: ReactNode[] = []
+    const highlightBorders: ReactNode[] = []
     for (let i = 0; i < BIG_SECTOR_COUNT; i++) {
       const startAngle = i * BIG_SECTOR_ANGLE
       const endAngle = (i + 1) * BIG_SECTOR_ANGLE
       if (isInHighlight(i)) {
-        outerHighlightBorders.push(
+        highlightBorders.push(
           <path
             key={`outer-highlight-${i}`}
             d={sectorRingPath(startAngle, endAngle, RING_OUTER, outerSectorRadiusFull)}
@@ -343,7 +356,7 @@ export default function GameBoard({
           />,
         )
       } else {
-        outerDarkenElements.push(
+        darkenElements.push(
           <path
             key={`outer-darken-${i}`}
             d={sectorRingPath(startAngle, endAngle, RING_OUTER, outerSectorRadiusFull)}
@@ -352,7 +365,16 @@ export default function GameBoard({
         )
       }
     }
-  }
+    return [...darkenElements, ...highlightBorders]
+  }, [tab, activeIndex, isMobile, outerSectorRadiusFull])
+
+  const transformStyle = useMemo<CSSProperties>(
+    () => ({
+      transform: `matrix(${outerScale}, 0, 0, ${outerScale}, ${CX * (1 - outerScale)}, ${CY * (1 - outerScale)})`,
+      transition: 'transform 0.4s ease',
+    }),
+    [outerScale],
+  )
 
   return (
     <div className={styles.container}>
@@ -403,16 +425,6 @@ export default function GameBoard({
                 <stop offset="36%" stopColor="white" stopOpacity="0.6" />
                 <stop offset="100%" stopColor="white" stopOpacity="0" />
               </radialGradient>
-              <radialGradient id="innerRevShadowGrad" cx="50%" cy="50%" r="100%">
-                <stop offset="36%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.20)" : "rgba(0,0,0,0.20)"} />
-                <stop offset="50%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)"} />
-                <stop offset="100%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.70)" : "rgba(0,0,0,0.70)"} />
-              </radialGradient>
-              <radialGradient id="innerShadowGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="36%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.70)" : "rgba(0,0,0,0.70)"} />
-                <stop offset="50%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)"} />
-                <stop offset="100%" stopColor={internalTab === 'small' ? "rgba(255,255,255,0.20)" : "rgba(0,0,0,0.20)"} />
-              </radialGradient>
 
               <linearGradient id='outer-grad-green' x1='0%' y1='0%' x2='100%' y2='100%'>
                 <stop offset='0%' stopColor='#40D451' />
@@ -432,12 +444,7 @@ export default function GameBoard({
               </linearGradient>
             </defs>
 
-            <g
-              style={{
-                transform: `matrix(${outerScale}, 0, 0, ${outerScale}, ${CX * (1 - outerScale)}, ${CY * (1 - outerScale)})`,
-                transition: 'transform 0.4s ease',
-              }}
-            >
+            <g style={transformStyle}>
               {innerSectorElements}
 
               <circle cx={CX} cy={CY} r={INNER_SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
@@ -494,8 +501,7 @@ export default function GameBoard({
                   fill="rgba(255, 255, 255, 0.2)"
                 />
               )}
-              {outerDarkenElements}
-              {outerHighlightBorders}
+              {outerOverlay}
 
               <path
                 d={ringPath(outerRingInner, outerRingOuter)}
