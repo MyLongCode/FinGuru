@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import styles from './GameBoard.module.css'
 import centerImage from '../assets/GameBoard.png'
 import { sectors, bigSectors, SECTOR_COUNT } from '../data/gameBoard'
-import TopBar from './TopBar'
+import TopBar, { type TopBarPlayers } from './TopBar'
 
 const SECTOR_ANGLE = 360 / SECTOR_COUNT
 const BIG_SECTOR_COUNT = 48
@@ -246,6 +246,23 @@ export default function GameBoard({
   const innerPlayerMarkers = renderPlayerMarkers(players, (RING_INNER + RING_OUTER) / 2, SECTOR_ANGLE)
   const outerPlayerMarkers = renderPlayerMarkers(bigSectorPlayers, OUTER_MARKER_R, BIG_SECTOR_ANGLE, tab === 'big' ? 2.5 : 1)
 
+  const topBarSectors = useMemo(
+    () => Array.from({ length: BIG_SECTOR_COUNT }, (_, i) => bigSectors[i % bigSectors.length]),
+    [],
+  )
+
+  const topBarPlayers = useMemo<TopBarPlayers>(() => {
+    const result: TopBarPlayers = {}
+    for (const player of bigSectorPlayers) {
+      if (player.cellIndex == null || player.cellIndex < 0) continue
+      result[player.cellIndex] = {
+        name: player.name ?? player.letter,
+        color: player.color,
+      }
+    }
+    return result
+  }, [bigSectorPlayers])
+
   return (
     <div className={styles.container}>
       <div className={styles.background} />
@@ -266,7 +283,7 @@ export default function GameBoard({
         </div>
 
         <div className={`${styles.topBarWrapper} ${tab === 'big' ? styles.topBarWrapperVisible : ''}`}>
-          <TopBar />
+          <TopBar sectors={topBarSectors} players={topBarPlayers} />
         </div>
 
         <div className={styles.wheelWrapper} style={{transform: (internalTab === 'big' ? 'translateY(13%)' : '')}}>
