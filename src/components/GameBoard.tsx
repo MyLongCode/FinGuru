@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import styles from './GameBoard.module.css'
 import centerImage from '../assets/GameBoard.png'
 import { sectors, bigSectors, SECTOR_COUNT } from '../data/gameBoard'
@@ -174,6 +174,15 @@ export default function GameBoard({
 }: GameBoardProps) {
   const [internalTab, setInternalTab] = useState<'small' | 'big'>('small')
   const [activeIndex, setActiveIndex] = useState(5)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 1023px)')
+    const update = () => setIsMobile(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
   const tab = onTabChange ? activeTab : internalTab
   const handleTabChange = (t: 'small' | 'big') => {
     if (onTabChange) onTabChange(t)
@@ -309,8 +318,9 @@ export default function GameBoard({
     return result
   }, [bigSectorDreams])
 
-  const highlightStart = (activeIndex - 2 + BIG_SECTOR_COUNT) % BIG_SECTOR_COUNT
-  const highlightEnd = (activeIndex + 2) % BIG_SECTOR_COUNT
+  const highlightRange = isMobile ? 1 : 2
+  const highlightStart = (activeIndex - highlightRange + BIG_SECTOR_COUNT) % BIG_SECTOR_COUNT
+  const highlightEnd = (activeIndex + highlightRange) % BIG_SECTOR_COUNT
   const isInHighlight = (i: number): boolean =>
     highlightStart <= highlightEnd
       ? i >= highlightStart && i <= highlightEnd
