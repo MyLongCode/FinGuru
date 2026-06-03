@@ -15,8 +15,6 @@ const RING_INNER = 200
 const RING_OUTER = 250
 const OUTER_SECTOR_RADIUS_FULL = 470
 const OUTER_SECTOR_RADIUS_BIG = 200
-const OUTER_RING_INNER = 480
-const OUTER_RING_OUTER = 510
 const CENTER_RADIUS = 60
 
 export interface PlayerMarker {
@@ -82,7 +80,7 @@ function ringPath(innerR: number, outerR: number): string {
 const LABEL_WIDTH = 110
 const LABEL_HEIGHT = 36
 
-function Sector({ index, outer }: { index: number; outer?: boolean }) {
+function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL }: { index: number; outer?: boolean; outerRadius?: number }) {
   const configArray = outer ? bigSectors : sectors
   const { color, label } = configArray[index % configArray.length]
   const angle = outer ? BIG_SECTOR_ANGLE : SECTOR_ANGLE
@@ -91,10 +89,10 @@ function Sector({ index, outer }: { index: number; outer?: boolean }) {
   const midAngle = (startAngle + endAngle) / 2
   const midRad = ((midAngle - 90) * Math.PI) / 180
   const innerR = outer ? RING_OUTER : CENTER_RADIUS
-  const outerR = outer ? OUTER_SECTOR_RADIUS_FULL : INNER_SECTOR_RADIUS
+  const outerR = outer ? outerRadius : INNER_SECTOR_RADIUS
 
   const labelR = outer
-    ? RING_OUTER + (OUTER_SECTOR_RADIUS_FULL - RING_OUTER) * 0.5
+    ? RING_OUTER + (outerRadius - RING_OUTER) * 0.5
     : INNER_SECTOR_RADIUS * 0.72
   const lx = CX + labelR * Math.cos(midRad)
   const ly = CY + labelR * Math.sin(midRad)
@@ -189,6 +187,9 @@ export default function GameBoard({
     else setInternalTab(t)
   }
   const outerScale = tab === 'big' ? OUTER_SECTOR_RADIUS_BIG / OUTER_SECTOR_RADIUS_FULL : 1
+  const outerSectorRadiusFull = tab === 'small' ? OUTER_SECTOR_RADIUS_FULL * 2 : OUTER_SECTOR_RADIUS_FULL
+  const outerRingInner = outerSectorRadiusFull + 10
+  const outerRingOuter = outerSectorRadiusFull + 40
   const innerSectorElements: ReactNode[] = []
   const outerSectorElements: ReactNode[] = []
   for (let i = 0; i < SECTOR_COUNT; i++) {
@@ -198,12 +199,12 @@ export default function GameBoard({
   }
   for (let i = 0; i < BIG_SECTOR_COUNT; i++) {
     outerSectorElements.push(
-      <Sector key={`out-${i}`} index={i} outer />
+      <Sector key={`out-${i}`} index={i} outer outerRadius={outerSectorRadiusFull} />
     )
   }
 
   const SPREAD = 3.5
-  const OUTER_MARKER_R = (OUTER_RING_INNER + OUTER_RING_OUTER) / 2
+  const OUTER_MARKER_R = (outerRingInner + outerRingOuter) / 2
 
   function renderPlayerMarkers(
     playerList: PlayerMarker[],
@@ -335,7 +336,7 @@ export default function GameBoard({
         outerHighlightBorders.push(
           <path
             key={`outer-highlight-${i}`}
-            d={sectorRingPath(startAngle, endAngle, RING_OUTER, OUTER_SECTOR_RADIUS_FULL)}
+            d={sectorRingPath(startAngle, endAngle, RING_OUTER, outerSectorRadiusFull)}
             fill="none"
             stroke="white"
             strokeWidth={4}
@@ -345,7 +346,7 @@ export default function GameBoard({
         outerDarkenElements.push(
           <path
             key={`outer-darken-${i}`}
-            d={sectorRingPath(startAngle, endAngle, RING_OUTER, OUTER_SECTOR_RADIUS_FULL)}
+            d={sectorRingPath(startAngle, endAngle, RING_OUTER, outerSectorRadiusFull)}
             fill="rgba(0, 0, 0, 0.3)"
           />,
         )
@@ -447,20 +448,6 @@ export default function GameBoard({
                 <InnerBoundaryHighlight key={`ibh-${i}`} index={i} />
               ))}
 
-              {outerSectorElements}
-              <path
-                d={ringPath(RING_OUTER, OUTER_SECTOR_RADIUS_FULL)}
-                fill="url(#outerFadeGrad)"
-              />
-              {tab === 'small' && (
-                <path
-                  d={ringPath(RING_OUTER, OUTER_SECTOR_RADIUS_FULL)}
-                  fill="rgba(255, 255, 255, 0.2)"
-                />
-              )}
-              {outerDarkenElements}
-              {outerHighlightBorders}
-
               <path
                 d={ringPath(RING_INNER, RING_OUTER)}
                 fill="white"
@@ -496,8 +483,22 @@ export default function GameBoard({
 
               {innerPlayerMarkers}
 
+              {outerSectorElements}
               <path
-                d={ringPath(OUTER_RING_INNER, OUTER_RING_OUTER)}
+                d={ringPath(RING_OUTER, outerSectorRadiusFull)}
+                fill="url(#outerFadeGrad)"
+              />
+              {tab === 'small' && (
+                <path
+                  d={ringPath(RING_OUTER, outerSectorRadiusFull)}
+                  fill="rgba(255, 255, 255, 0.2)"
+                />
+              )}
+              {outerDarkenElements}
+              {outerHighlightBorders}
+
+              <path
+                d={ringPath(outerRingInner, outerRingOuter)}
                 fill="white"
                 fillRule="evenodd"
               />
