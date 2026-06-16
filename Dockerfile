@@ -8,7 +8,7 @@ RUN npx storybook build -o storybook-static
 
 FROM nginx:stable-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY --from=builder /app/storybook-static /usr/share/nginx/html/story
+COPY --from=builder /app/dist /usr/share/nginx/html/guru
+COPY --from=builder /app/storybook-static /usr/share/nginx/html/guru/story
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
