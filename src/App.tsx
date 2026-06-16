@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { GameProvider } from './context/GameContext'
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom'
+import { Routes, Route, useNavigate, useParams, Navigate } from 'react-router-dom'
 import RoleCardPage from './pages/RoleCardPage'
 import RoleDetailsPage from './pages/RoleDetailsPage'
-import { icons, roleNames, roleData, roleKeys } from './data/roles'
+import DreamPage from './pages/DreamPage'
+import { icons, roleData, roleKeys } from './data/roles'
+import { dreams as defaultDreams } from './data/dreams'
+import type { DreamItem } from './pages/DreamPage'
 import './App.css'
-
-type RoleKey = (typeof roleKeys)[number]
 
 function RoleDetailsPageRoute() {
   const navigate = useNavigate()
@@ -17,48 +18,56 @@ function RoleDetailsPageRoute() {
     icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
     roleName={data.name}
     financialData={data.financialData}
+    onStartGame={() => navigate(`/role/${roleName}/dreams`)}
+  />
+}
+
+function DreamPageRoute() {
+  const navigate = useNavigate()
+  const { roleName } = useParams<{ roleName: string }>()
+  const data = roleName ? roleData[roleName] : undefined
+  const [dreams, setDreams] = useState<DreamItem[]>(() =>
+    defaultDreams.map(d => ({ ...d, status: 'default' as const }))
+  )
+
+  const handleDreamSelect = useCallback((dreamId: number) => {
+    setDreams(prev => prev.map(d => {
+      if (d.id === dreamId) {
+        const newStatus: DreamItem['status'] = d.status === 'selected' ? 'default' : 'selected'
+        return { ...d, status: newStatus }
+      }
+      return d
+    }))
+  }, [])
+
+  if (!data) return <p>Роль не найдена</p>
+  return <DreamPage
+    icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
+    roleName={data.name}
+    monthlyCashFlow={data.financialData.monthlyCashFlow}
+    dreams={dreams}
+    onDreamSelect={handleDreamSelect}
     onStartGame={() => navigate('/')}
   />
 }
 
-function App() {
-  // Wrap the whole application with the GameProvider to expose global state
+function RandomRoleRedirect() {
+  const [role] = useState(() => roleKeys[Math.floor(Math.random() * roleKeys.length)])
+  return <Navigate to={`/role/${role}`} replace />
+}
 
+function App() {
   const navigate = useNavigate()
-  const [selectedRole, setSelectedRole] = useState<RoleKey>('policeOfficer')
 
   return (
     <GameProvider>
       <Routes>
-      <Route path="/role/:roleName" element={<RoleCardPage onTimeout={() => navigate('/')} />} />
-      <Route path="/role/:roleName/details" element={<RoleDetailsPageRoute />} />
-      <Route path="*" element={
-        <>
-          <section id="center">
-            <h1>FinGuru</h1>
-            <select
-              className="roleSelect"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as RoleKey)}
-            >
-              {roleKeys.map((k) => (
-                <option key={k} value={k}>{roleNames[k]}</option>
-              ))}
-            </select>
-            <button className="counter" onClick={() => navigate(`/role/${selectedRole}`)}>
-              Выбрать роль
-            </button>
-            <button className="counter" onClick={() => navigate(`/role/${selectedRole}/details`)}>
-              Сведения о роли
-            </button>
-          </section>
-          <footer className="footer">
-            <a href="/guru/story" target="_blank" rel="noopener noreferrer">
-              Storybook
-            </a>
-          </footer>
-        </>
+      <Route path="/role/:roleName" element={
+        <RoleCardPage onTimeout={(roleName) => navigate(`/role/${roleName}/details`)} />
       } />
+      <Route path="/role/:roleName/details" element={<RoleDetailsPageRoute />} />
+      <Route path="/role/:roleName/dreams" element={<DreamPageRoute />} />
+      <Route path="*" element={<RandomRoleRedirect />} />
       </Routes>
     </GameProvider>
   )

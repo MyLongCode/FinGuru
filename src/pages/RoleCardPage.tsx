@@ -4,7 +4,7 @@ import { icons, roleNames } from '../data/roles'
 import styles from './RoleCardPage.module.css'
 
 interface RoleCardPageProps {
-  onTimeout?: () => void
+  onTimeout?: (roleName: string) => void
 }
 
 export default function RoleCardPage({ onTimeout }: RoleCardPageProps) {
@@ -14,7 +14,7 @@ export default function RoleCardPage({ onTimeout }: RoleCardPageProps) {
 
   useEffect(() => {
     if (!roleName || !displayName || !iconSrc) return
-    const timer = setTimeout(() => onTimeout?.(), 2500)
+    const timer = setTimeout(() => onTimeout?.(roleName), 2000)
     return () => clearTimeout(timer)
   }, [roleName, displayName, iconSrc, onTimeout])
 
