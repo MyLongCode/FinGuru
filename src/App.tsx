@@ -34,19 +34,24 @@ function DreamPageRoute() {
   const currentPlayer = players.find(p => p.id === currentPlayerId)
 
   const handleDreamSelect = useCallback((dreamId: number) => {
-    setDreams(prev => prev.map(d => {
-      if (d.id === dreamId) {
-        const isDeselecting = d.status === 'selected'
-        const newStatus: DreamItem['status'] = isDeselecting ? 'default' : 'selected'
-        return {
-          ...d,
-          status: newStatus,
-          playerName: isDeselecting ? undefined : (currentPlayer?.name ?? 'Игрок'),
-          color: isDeselecting ? undefined : currentPlayer?.color,
-        }
+    setDreams(prev => {
+      const clicked = prev.find(d => d.id === dreamId)
+      if (clicked?.status === 'selected') {
+        return prev.map(d => d.id === dreamId
+          ? { ...d, status: 'default' as const, playerName: undefined, color: undefined }
+          : d
+        )
       }
-      return d
-    }))
+      return prev.map(d => {
+        if (d.id === dreamId) {
+          return { ...d, status: 'selected' as const, playerName: currentPlayer?.name ?? 'Игрок', color: currentPlayer?.color }
+        }
+        if (d.status === 'selected') {
+          return { ...d, status: 'default' as const, playerName: undefined, color: undefined }
+        }
+        return d
+      })
+    })
   }, [currentPlayer])
 
   if (!data) return <p>Роль не найдена</p>
