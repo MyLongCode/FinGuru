@@ -12,6 +12,7 @@ export interface DreamItem {
   playerName?: string
   color?: string
   status?: DreamCardStatus
+  takenByPlayerId?: string
 }
 
 interface DreamPageProps {
@@ -19,6 +20,7 @@ interface DreamPageProps {
   roleName: string
   monthlyCashFlow: number
   dreams: DreamItem[]
+  currentPlayerId?: string
   onStartGame?: () => void
   onDreamSelect?: (dreamId: number) => void
 }
@@ -37,13 +39,14 @@ const cardBorderColors: Record<DreamCardStatus, string | undefined> = {
   hover: '#d1d1d6',
 }
 
-function DreamCard({ item, onSelect }: { item: DreamItem; onSelect?: (id: number) => void }) {
-  const status = item.status ?? 'default'
-  const isHighlighted = status === 'selected' || status === 'chosen'
-  const bg = isHighlighted && item.color ? item.color : cardBgColors[status]
-  const borderColor = cardBorderColors[status]
+function DreamCard({ item, onSelect, currentPlayerId }: { item: DreamItem; onSelect?: (id: number) => void; currentPlayerId?: string }) {
+  const isTakenByOther = !!item.takenByPlayerId && item.takenByPlayerId !== currentPlayerId
+  const computedStatus: DreamCardStatus = isTakenByOther ? 'chosen' : (item.status ?? 'default')
+  const isHighlighted = computedStatus === 'selected' || computedStatus === 'chosen'
+  const bg = isHighlighted && item.color ? item.color : cardBgColors[computedStatus]
+  const borderColor = cardBorderColors[computedStatus]
 
-  const statusClass = status !== 'default' ? styles[`card${status.charAt(0).toUpperCase()}${status.slice(1)}` as keyof typeof styles] : undefined
+  const statusClass = computedStatus !== 'default' ? styles[`card${computedStatus.charAt(0).toUpperCase()}${computedStatus.slice(1)}` as keyof typeof styles] : undefined
 
   return (
     <div
@@ -51,8 +54,9 @@ function DreamCard({ item, onSelect }: { item: DreamItem; onSelect?: (id: number
       style={{
         background: bg,
         borderColor: borderColor ?? 'transparent',
+        cursor: isTakenByOther ? 'not-allowed' : 'pointer',
       }}
-      onClick={() => onSelect?.(item.id)}
+      onClick={() => !isTakenByOther && onSelect?.(item.id)}
     >
       <div className={styles.cardBody}>
         <div className={styles.cardTitleRow}>
@@ -72,7 +76,7 @@ function DreamCard({ item, onSelect }: { item: DreamItem; onSelect?: (id: number
   )
 }
 
-export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, onStartGame, onDreamSelect }: DreamPageProps) {
+export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, currentPlayerId, onStartGame, onDreamSelect }: DreamPageProps) {
   return (
     <div className={styles.page}>
       <div className={styles.headerRow}>
@@ -93,7 +97,7 @@ export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, onS
 
         <div className={styles.dreamGrid}>
           {dreams.map(dream => (
-            <DreamCard key={dream.id} item={dream} onSelect={onDreamSelect} />
+            <DreamCard key={dream.id} item={dream} onSelect={onDreamSelect} currentPlayerId={currentPlayerId} />
           ))}
         </div>
       </div>

@@ -35,6 +35,19 @@ export async function getPlayerRole(sdk: AlgoGamesSDK, roomId: string, playerId:
   });
 }
 
+export async function getPlayerInfo(sdk: AlgoGamesSDK, roomId: string, playerId: string): Promise<{ roleId: string | null; color: string | null }> {
+  return new Promise((resolve) => {
+    const handler = (msg: { type: string; data: any }) => {
+      if (msg.type === 'finguru.roleAssigned' && msg.data?.roomId === roomId) {
+        sdk.onReceiveMessage(() => {});
+        resolve({ roleId: msg.data.roleId ?? null, color: msg.data.color ?? null });
+      }
+    };
+    sdk.onReceiveMessage(handler);
+    sdk.sendAction('finguru.getRole', { roomId, playerId });
+  });
+}
+
 export interface DreamServerState {
   id: number
   chosenByPlayerId: string | null

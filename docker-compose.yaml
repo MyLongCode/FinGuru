@@ -1,6 +1,8 @@
 services:
   finguru:
-    build: .
+    build:
+      context: ..
+      dockerfile: FinGuru/Dockerfile
     ports:
       - "8080:80"
 
