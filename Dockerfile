@@ -1,14 +1,14 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY FinGuru/package.json FinGuru/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm install
-COPY AlgoGames.SDK /app/node_modules/algogames-sdk
-COPY FinGuru/ .
+COPY sdk/algogames-sdk /app/node_modules/algogames-sdk
+COPY . .
 RUN npm run build
 RUN npx storybook build -o storybook-static
 
 FROM nginx:stable-alpine
-COPY FinGuru/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html/guru
 COPY --from=builder /app/storybook-static /usr/share/nginx/html/guru/story
 EXPOSE 80
