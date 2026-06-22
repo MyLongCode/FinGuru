@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
-import { Routes, Route, useNavigate, useParams, Navigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom'
 import RoleCardPage from './pages/RoleCardPage'
 import RoleDetailsPage from './pages/RoleDetailsPage'
 import DreamPage from './pages/DreamPage'
 import GamePage from './pages/GamePage'
-import { icons, roleData, roleKeys } from './data/roles'
+import { icons, roleData, roleKeys, roleNames } from './data/roles'
 import { dreams as defaultDreams } from './data/dreams'
-import { getSdk, subscribeDreamSelection, getPlayerInfo } from './sdk'
+import { getSdk, subscribeDreamSelection, getPlayerInfo, getGameState, type GameState } from './sdk'
 import type { DreamItem } from './pages/DreamPage'
 import './App.css'
 
@@ -101,6 +101,35 @@ function DreamPageRoute() {
 }
 
 function RandomRoleRedirect() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const roomId = searchParams.get('roomId') ?? ''
+  const sdkPlayerId = searchParams.get('playerId') ?? ''
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    if (!roomId || !sdkPlayerId) {
+      setChecking(false)
+      return
+    }
+    const sdk = getSdk()
+    getGameState(sdk, roomId).then(state => {
+      if (state && state.phase === 'playing') {
+        const me = state.players.find(p => p.playerId === sdkPlayerId)
+        if (me && me.dreamId != null) {
+          const roleKey = me.roleId
+          navigate(`/role/${roleKey}/game` + window.location.search, { replace: true })
+          return
+        }
+      }
+      setChecking(false)
+    }).catch(() => {
+      setChecking(false)
+    })
+  }, [roomId, sdkPlayerId, navigate])
+
+  if (checking) return null
+
   const [role] = useState(() => roleKeys[Math.floor(Math.random() * roleKeys.length)])
   return <Navigate to={`/role/${role}`} replace />
 }

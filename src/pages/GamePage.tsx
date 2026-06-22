@@ -124,11 +124,22 @@ export default function GamePage() {
     name: p.displayName,
   }))
 
-  const myPos = me?.position ?? 0
   const bigSectorPlayers = boardPlayers.map(p => ({
     ...p,
     cellIndex: ((p.cellIndex ?? 0) * 2) % 48,
   }))
+
+  const bigSectorDreams = (gameState?.players ?? [])
+    .filter(p => p.dreamId != null)
+    .map(p => {
+      const dreamIndex = (p.dreamId! - 1) % 7
+      const cellIndex = (dreamIndex * 7) % 48
+      return {
+        cellIndex,
+        playerName: p.displayName,
+        color: p.color,
+      }
+    })
 
   const isMyTurn = gameState?.currentPlayerId === sdkPlayerId
 
@@ -158,7 +169,7 @@ export default function GamePage() {
         <GameBoard
           players={boardPlayers}
           bigSectorPlayers={bigSectorPlayers}
-          bigSectorDreams={[]}
+          bigSectorDreams={bigSectorDreams}
           currentPlayerId={isMyTurn ? sdkPlayerId : undefined}
           activeTab={activeTab}
           onTabChange={setActiveTab}
