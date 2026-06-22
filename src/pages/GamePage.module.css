@@ -1,18 +1,19 @@
 .gamePage {
-  display: grid;
-  grid-template-columns: 300px 1fr 300px;
+  position: relative;
+  width: 100%;
   height: 100vh;
-  gap: 0;
-  padding: 16px;
-  background: #f5f5f7;
-  font-family: 'Montserrat Alternates', sans-serif;
-  box-sizing: border-box;
   overflow: hidden;
+  font-family: 'Montserrat Alternates', sans-serif;
 }
 
 .dashboardColumn {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  bottom: 16px;
+  width: 300px;
   overflow-y: auto;
-  padding-right: 16px;
+  z-index: 10;
   scrollbar-width: thin;
 }
 
@@ -26,15 +27,19 @@
 }
 
 .boardColumn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
 }
 
 .historyColumn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: 300px;
   overflow-y: auto;
-  padding-left: 16px;
+  z-index: 10;
   scrollbar-width: thin;
 }
 
@@ -47,36 +52,19 @@
   border-radius: 2px;
 }
 
-@media (max-width: 1200px) {
-  .gamePage {
-    grid-template-columns: 260px 1fr 260px;
-    padding: 12px;
-    gap: 0;
-  }
-}
-
 @media (max-width: 1024px) {
-  .gamePage {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-  }
-
   .dashboardColumn {
-    overflow-y: visible;
-    padding-right: 0;
-    max-height: 300px;
-  }
-
-  .boardColumn {
-    min-height: 500px;
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 200px;
+    border-radius: 24px 24px 0 0;
   }
 
   .historyColumn {
-    overflow-y: visible;
-    padding-left: 0;
-    max-height: 400px;
+    display: none;
   }
 }
