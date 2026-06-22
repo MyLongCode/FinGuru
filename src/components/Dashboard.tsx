@@ -39,6 +39,7 @@ export interface DashboardProps {
   progressAmount: number
   statuses: DashboardStatus[]
   assetCategories: AssetCategory[]
+  icon?: string
 }
 
 function MiniCard({ label, amount, amountColor }: { label: string; amount: string; amountColor: string }) {
@@ -97,7 +98,7 @@ function AssetCategoryCard({ category, defaultExpanded }: { category: AssetCateg
 
 export default function Dashboard({
   playerName, playerRole, moveNumber, stats,
-  goalTarget, progressAmount, statuses, assetCategories,
+  goalTarget, progressAmount, statuses, assetCategories, icon,
 }: DashboardProps) {
   return (
     <div className={styles.container}>
@@ -108,7 +109,11 @@ export default function Dashboard({
           moveNumber={moveNumber}
         />
         <div className={styles.avatar}>
-          <div className={styles.avatarCircle} />
+          {icon ? (
+            <img src={icon} alt={playerRole} className={styles.avatarIcon} />
+          ) : (
+            <div className={styles.avatarCircle} />
+          )}
           <div className={styles.avatarRing} />
         </div>
       </div>

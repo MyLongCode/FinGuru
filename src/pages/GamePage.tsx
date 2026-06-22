@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext'
 import Dashboard from '../components/Dashboard'
 import GameBoard from '../components/GameBoard'
 import MoveHistory from '../components/MoveHistory'
-import { icons, roleData } from '../data/roles'
+import { icons, roleData, roleNames } from '../data/roles'
 import { dreams as defaultDreams } from '../data/dreams'
 import {
   getSdk,
@@ -150,6 +150,7 @@ export default function GamePage() {
           progressAmount={dashboardPlayer.cash}
           statuses={[]}
           assetCategories={[]}
+          icon={icons[`/src/assets/roles/${roleName}.svg`]}
         />
       </div>
 

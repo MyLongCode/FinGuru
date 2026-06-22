@@ -1,11 +1,12 @@
 .container {
-  position: fixed;
-  inset: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   font-family: 'Montserrat Alternates', sans-serif;
   box-sizing: border-box;
-  overflow: clip;
+  overflow: hidden;
 }
 
 .container *,
