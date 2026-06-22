@@ -113,20 +113,22 @@ function RandomRoleRedirect() {
       return
     }
     const sdk = getSdk()
+    const timeout = setTimeout(() => setChecking(false), 2000)
     getGameState(sdk, roomId).then(state => {
-      if (state && state.phase === 'playing') {
+      clearTimeout(timeout)
+      if (state?.phase === 'playing') {
         const me = state.players.find(p => p.playerId === sdkPlayerId)
-        if (me && me.dreamId != null) {
-          const roleKey = me.roleId
-          navigate(`/role/${roleKey}/game` + window.location.search, { replace: true })
+        if (me?.dreamId != null) {
+          navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
           return
         }
       }
       setChecking(false)
     }).catch(() => {
+      clearTimeout(timeout)
       setChecking(false)
     })
-  }, [roomId, sdkPlayerId, navigate])
+  }, [])
 
   if (checking) return null
 
