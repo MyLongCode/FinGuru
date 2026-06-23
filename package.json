@@ -12,7 +12,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "algogames-sdk": "file:./sdk/algogames-sdk",
+    "algogames-sdk": "file:../AlgoGames.SDK",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0"

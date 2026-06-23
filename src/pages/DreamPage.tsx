@@ -1,4 +1,5 @@
 import { formatCurrency } from '../utils/format'
+import { useMemo } from 'react'
 import styles from './DreamPage.module.css'
 
 export type DreamCardStatus = 'default' | 'selected' | 'chosen' | 'hover'
@@ -13,6 +14,7 @@ export interface DreamItem {
   color?: string
   status?: DreamCardStatus
   takenByPlayerId?: string
+  iconKey?: string
 }
 
 interface DreamPageProps {
@@ -20,6 +22,7 @@ interface DreamPageProps {
   roleName: string
   monthlyCashFlow: number
   dreams: DreamItem[]
+  assets?: { key: string; url: string }[]
   currentPlayerId?: string
   onStartGame?: () => void
   onDreamSelect?: (dreamId: number) => void
@@ -39,7 +42,7 @@ const cardBorderColors: Record<DreamCardStatus, string | undefined> = {
   hover: '#d1d1d6',
 }
 
-function DreamCard({ item, onSelect, currentPlayerId }: { item: DreamItem; onSelect?: (id: number) => void; currentPlayerId?: string }) {
+function DreamCard({ item, onSelect, currentPlayerId, iconUrl }: { item: DreamItem; onSelect?: (id: number) => void; currentPlayerId?: string; iconUrl?: string }) {
   const isTakenByOther = !!item.takenByPlayerId && item.takenByPlayerId !== currentPlayerId
   const computedStatus: DreamCardStatus = isTakenByOther ? 'chosen' : (item.status ?? 'default')
   const isHighlighted = computedStatus === 'selected' || computedStatus === 'chosen'
@@ -63,7 +66,12 @@ function DreamCard({ item, onSelect, currentPlayerId }: { item: DreamItem; onSel
           <span className={styles.cardTitle}>{item.title}</span>
           <span className={styles.cardNumber}>{item.number}</span>
         </div>
-        <p className={styles.cardDescription}>{item.description}</p>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <p className={styles.cardDescription} style={{ flex: 1 }}>{item.description}</p>
+          {iconUrl && (
+            <img src={iconUrl} alt={item.title} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }} />
+          )}
+        </div>
       </div>
 
       <div className={styles.cardFooter}>
@@ -76,8 +84,16 @@ function DreamCard({ item, onSelect, currentPlayerId }: { item: DreamItem; onSel
   )
 }
 
-export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, currentPlayerId, onStartGame, onDreamSelect }: DreamPageProps) {
+export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, assets, currentPlayerId, onStartGame, onDreamSelect }: DreamPageProps) {
   const hasSelectedDream = dreams.some(d => d.status === 'selected' && d.takenByPlayerId === currentPlayerId)
+
+  const assetsMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    assets?.forEach(a => {
+      if (a?.key && a?.url) map[a.key] = a.url
+    })
+    return map
+  }, [assets])
 
   return (
     <div className={styles.page}>
@@ -99,7 +115,7 @@ export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, cur
 
         <div className={styles.dreamGrid}>
           {dreams.map(dream => (
-            <DreamCard key={dream.id} item={dream} onSelect={onDreamSelect} currentPlayerId={currentPlayerId} />
+            <DreamCard key={dream.id} item={dream} onSelect={onDreamSelect} currentPlayerId={currentPlayerId} iconUrl={dream.iconKey ? assetsMap[dream.iconKey] : undefined} />
           ))}
         </div>
       </div>

@@ -4,6 +4,8 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 
+const routerBasename = window.location.pathname.startsWith('/guru') ? '/guru' : '/'
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error?: Error }
@@ -37,7 +39,7 @@ class ErrorBoundary extends React.Component<
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/guru">
+    <BrowserRouter basename={routerBasename}>
       <ErrorBoundary>
         <App />
       </ErrorBoundary>

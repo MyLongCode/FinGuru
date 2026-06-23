@@ -6,11 +6,16 @@ import { fileURLToPath } from 'node:url';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { playwright } from '@vitest/browser-playwright';
 const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+const basePath = process.env.VITE_BASE_PATH ?? (process.env.NODE_ENV === 'production' ? '/guru/' : '/');
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
   plugins: [react()],
-  base: '/guru/',
+  base: basePath,
+  server: {
+    port: 5173,
+    host: '0.0.0.0'
+  },
   test: {
     projects: [{
       extends: true,

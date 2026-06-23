@@ -40,6 +40,47 @@
   height: 100%;
 }
 
+.turnPanel {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: min(420px, calc(100% - 32px));
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  text-align: center;
+  color: rgb(28, 28, 30);
+  pointer-events: none;
+}
+
+.turnPanel strong {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.turnEyebrow,
+.turnHint {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgb(99, 99, 110);
+  line-height: 1.25;
+}
+
+.turnHint {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .historyColumn {
   height: 100vh;
   overflow-y: auto;
@@ -74,6 +115,15 @@
 
   .boardColumn {
     min-height: 500px;
+  }
+
+  .turnPanel {
+    top: 10px;
+    padding: 10px 14px;
+  }
+
+  .turnPanel strong {
+    font-size: 15px;
   }
 
   .historyColumn {

@@ -1,0 +1,16 @@
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Copy SDK locally
+COPY sdk/algogames-sdk ./node_modules/algogames-sdk
+
+COPY . .
+
+EXPOSE 5173
+
+ENV HOST=0.0.0.0
+ENV VITE_BASE_PATH=/guru/
+CMD ["npm", "run", "dev"]

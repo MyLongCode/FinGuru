@@ -36,6 +36,9 @@ interface GameBoardProps {
   bigSectorPlayers?: PlayerMarker[]
   bigSectorDreams?: DreamMarker[]
   currentPlayerId?: string
+  isRolling?: boolean
+  lastRollLabel?: string
+  rollButtonLabel?: string
   activeTab?: 'small' | 'big'
   onTabChange?: (tab: 'small' | 'big') => void
   onRollDice?: () => void
@@ -226,6 +229,9 @@ export default function GameBoard({
   bigSectorPlayers = [],
   bigSectorDreams = [],
   currentPlayerId,
+  isRolling = false,
+  lastRollLabel,
+  rollButtonLabel,
   activeTab = 'small',
   onTabChange,
   onRollDice,
@@ -400,6 +406,7 @@ export default function GameBoard({
         </div>
 
         <div className={styles.wheelWrapper} style={{transform: (internalTab === 'big' ? 'translateY(13%)' : '')}}>
+          <div className={`${styles.spinLayer} ${isRolling ? styles.spinLayerRolling : ''}`}>
           <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className={styles.wheelSvg}>
             <defs>
               <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -513,12 +520,18 @@ export default function GameBoard({
               {outerDreamMarkers}
             </g>
           </svg>
+          </div>
+          {lastRollLabel && (
+            <div className={styles.rollBadge}>
+              {lastRollLabel}
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, minHeight: 0 }} />
 
-        <button className={styles.rollButton} onClick={onRollDice}>
-          Бросить кубик
+        <button className={styles.rollButton} onClick={onRollDice} disabled={!onRollDice || isRolling}>
+          {rollButtonLabel ?? (isRolling ? 'Бросаем...' : 'Бросить кубик')}
         </button>
       </div>
     </div>
