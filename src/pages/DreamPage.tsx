@@ -114,9 +114,11 @@ export default function DreamPage({ icon, roleName, monthlyCashFlow, dreams, ass
         </div>
 
         <div className={styles.dreamGrid}>
-          {dreams.map(dream => (
+          {dreams.length > 0 ? dreams.map(dream => (
             <DreamCard key={dream.id} item={dream} onSelect={onDreamSelect} currentPlayerId={currentPlayerId} iconUrl={dream.iconKey ? assetsMap[dream.iconKey] : undefined} />
-          ))}
+          )) : (
+            <div className={styles.emptyDreams}>Загружаем мечты...</div>
+          )}
         </div>
       </div>
 

@@ -37,8 +37,11 @@ interface GameBoardProps {
   bigSectorDreams?: DreamMarker[]
   currentPlayerId?: string
   isRolling?: boolean
+  selectedDiceCount?: 1 | 2 | 3
+  diceValues?: number[]
   lastRollLabel?: string
   rollButtonLabel?: string
+  onDiceCountChange?: (count: 1 | 2 | 3) => void
   activeTab?: 'small' | 'big'
   onTabChange?: (tab: 'small' | 'big') => void
   onRollDice?: () => void
@@ -230,8 +233,11 @@ export default function GameBoard({
   bigSectorDreams = [],
   currentPlayerId,
   isRolling = false,
+  selectedDiceCount = 2,
+  diceValues = [],
   lastRollLabel,
   rollButtonLabel,
+  onDiceCountChange,
   activeTab = 'small',
   onTabChange,
   onRollDice,
@@ -406,7 +412,7 @@ export default function GameBoard({
         </div>
 
         <div className={styles.wheelWrapper} style={{transform: (internalTab === 'big' ? 'translateY(13%)' : '')}}>
-          <div className={`${styles.spinLayer} ${isRolling ? styles.spinLayerRolling : ''}`}>
+          <div className={styles.spinLayer}>
           <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className={styles.wheelSvg}>
             <defs>
               <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -452,21 +458,42 @@ export default function GameBoard({
             </defs>
 
             <g style={transformStyle}>
-              {innerSectorElements}
+              <g className={isRolling ? styles.wheelDiscRolling : undefined}>
+                {innerSectorElements}
 
-              <circle cx={CX} cy={CY} r={INNER_SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
-              {Array.from({ length: SECTOR_COUNT }, (_, i) => (
-                <InnerBoundaryShadow key={`ibs-${i}`} index={i} />
-              ))}
-              {Array.from({ length: SECTOR_COUNT }, (_, i) => (
-                <InnerBoundaryHighlight key={`ibh-${i}`} index={i} />
-              ))}
+                <circle cx={CX} cy={CY} r={INNER_SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
+                {Array.from({ length: SECTOR_COUNT }, (_, i) => (
+                  <InnerBoundaryShadow key={`ibs-${i}`} index={i} />
+                ))}
+                {Array.from({ length: SECTOR_COUNT }, (_, i) => (
+                  <InnerBoundaryHighlight key={`ibh-${i}`} index={i} />
+                ))}
 
-              <path
-                d={ringPath(RING_INNER, RING_OUTER)}
-                fill="white"
-                fillRule="evenodd"
-              />
+                <path
+                  d={ringPath(RING_INNER, RING_OUTER)}
+                  fill="white"
+                  fillRule="evenodd"
+                />
+
+                {outerSectorElements}
+                <path
+                  d={ringPath(RING_OUTER, outerSectorRadiusFull)}
+                  fill="url(#outerFadeGrad)"
+                />
+                {tab === 'small' && (
+                  <path
+                    d={ringPath(RING_OUTER, outerSectorRadiusFull)}
+                    fill="rgba(255, 255, 255, 0.2)"
+                  />
+                )}
+                {outerOverlay}
+
+                <path
+                  d={ringPath(outerRingInner, outerRingOuter)}
+                  fill="white"
+                  fillRule="evenodd"
+                />
+              </g>
 
               <circle cx={CX} cy={CY} r={CENTER_RADIUS} fill="url(#centerBgGrad)" />
               <image
@@ -497,25 +524,6 @@ export default function GameBoard({
 
               {innerPlayerMarkers}
 
-              {outerSectorElements}
-              <path
-                d={ringPath(RING_OUTER, outerSectorRadiusFull)}
-                fill="url(#outerFadeGrad)"
-              />
-              {tab === 'small' && (
-                <path
-                  d={ringPath(RING_OUTER, outerSectorRadiusFull)}
-                  fill="rgba(255, 255, 255, 0.2)"
-                />
-              )}
-              {outerOverlay}
-
-              <path
-                d={ringPath(outerRingInner, outerRingOuter)}
-                fill="white"
-                fillRule="evenodd"
-              />
-
               {outerPlayerMarkers}
               {outerDreamMarkers}
             </g>
@@ -530,10 +538,68 @@ export default function GameBoard({
 
         <div style={{ flex: 1, minHeight: 0 }} />
 
+        <div className={styles.diceDock}>
+          <div className={styles.diceSelector} aria-label="Количество кубиков">
+            {[1, 2, 3].map((count) => (
+              <button
+                key={count}
+                type="button"
+                className={selectedDiceCount === count ? styles.diceCountActive : styles.diceCount}
+                onClick={() => onDiceCountChange?.(count as 1 | 2 | 3)}
+                disabled={isRolling || !onRollDice}
+              >
+                {count}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.diceTray} aria-live="polite">
+            {Array.from({ length: selectedDiceCount }, (_, index) => (
+              <Die
+                key={index}
+                value={diceValues[index] ?? ((index % 6) + 1)}
+                rolling={isRolling}
+                delay={index * 110}
+              />
+            ))}
+          </div>
+
+          <button className={styles.rollButton} onClick={onRollDice} disabled={!onRollDice || isRolling}>
+            {rollButtonLabel ?? (isRolling ? 'Бросаем...' : 'Бросить кубики')}
+          </button>
+        </div>
+
         <button className={styles.rollButton} onClick={onRollDice} disabled={!onRollDice || isRolling}>
           {rollButtonLabel ?? (isRolling ? 'Бросаем...' : 'Бросить кубик')}
         </button>
       </div>
     </div>
   )
+}
+
+function Die({ value, rolling, delay }: { value: number; rolling: boolean; delay: number }) {
+  const pips = getPips(Math.max(1, Math.min(6, value)))
+
+  return (
+    <div
+      className={`${styles.die} ${rolling ? styles.dieRolling : ''}`}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {pips.map(position => (
+        <span key={position} className={`${styles.pip} ${styles[`pip${position}` as keyof typeof styles]}`} />
+      ))}
+    </div>
+  )
+}
+
+function getPips(value: number): number[] {
+  switch (value) {
+    case 1: return [5]
+    case 2: return [1, 9]
+    case 3: return [1, 5, 9]
+    case 4: return [1, 3, 7, 9]
+    case 5: return [1, 3, 5, 7, 9]
+    case 6: return [1, 3, 4, 6, 7, 9]
+    default: return [5]
+  }
 }

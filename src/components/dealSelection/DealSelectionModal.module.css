@@ -107,7 +107,7 @@
   font-family: 'Montserrat Alternates', sans-serif;
   font-weight: 600;
   font-size: 26px;
-  letter-spacing: -1%;
+  letter-spacing: 0;
   text-align: center;
   color: #fff;
   margin: 0;
@@ -118,7 +118,7 @@
   font-weight: 500;
   font-size: 15px;
   line-height: 21px;
-  letter-spacing: -1%;
+  letter-spacing: 0;
   text-align: center;
   color: #fff;
   margin: 0;
@@ -129,7 +129,7 @@
   font-family: 'Montserrat Alternates', sans-serif;
   font-weight: 600;
   font-size: 15px;
-  letter-spacing: -1%;
+  letter-spacing: 0;
   color: #fff;
   background: rgba(0, 0, 0, 0.2);
   border: none;

@@ -1,10 +1,10 @@
-.gamePage {
+﻿.gamePage {
   display: grid;
-  grid-template-columns: 25% 50% 25%;
+  grid-template-columns: minmax(300px, 360px) minmax(520px, 1fr) minmax(300px, 360px);
   height: 100vh;
-  gap: 0;
-  padding: 0;
-  background: #f5f5f7;
+  gap: 12px;
+  padding: 12px;
+  background: rgb(229, 229, 229);
   font-family: 'Montserrat Alternates', sans-serif;
   box-sizing: border-box;
   overflow: hidden;
@@ -12,12 +12,14 @@
 }
 
 .dashboardColumn {
-  height: 100vh;
+  height: calc(100vh - 24px);
   overflow-y: auto;
-  padding: 16px;
+  padding: 0;
   scrollbar-width: thin;
   background: #fff;
-  border-radius: 0 24px 24px 0;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
   z-index: 10;
 }
 
@@ -37,7 +39,11 @@
   overflow: hidden;
   position: relative;
   z-index: 1;
-  height: 100%;
+  height: calc(100vh - 24px);
+  border: 1px solid rgba(60, 60, 67, 0.1);
+  border-radius: 8px;
+  background: rgb(242, 242, 242);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
 }
 
 .turnPanel {
@@ -51,10 +57,11 @@
   align-items: center;
   gap: 4px;
   min-width: min(420px, calc(100% - 32px));
-  padding: 12px 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 10px 14px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
   text-align: center;
   color: rgb(28, 28, 30);
   pointer-events: none;
@@ -82,12 +89,14 @@
 }
 
 .historyColumn {
-  height: 100vh;
+  height: calc(100vh - 24px);
   overflow-y: auto;
-  padding: 16px;
+  padding: 10px;
   scrollbar-width: thin;
   background: #fff;
-  border-radius: 24px 0 0 24px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
   z-index: 10;
 }
 
@@ -98,6 +107,780 @@
 .historyColumn::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
   border-radius: 2px;
+}
+
+.sideTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  background: rgb(239, 239, 239);
+}
+
+.sideTab,
+.sideTabActive {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(99, 99, 110);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sideTabActive {
+  background: #fff;
+  color: rgb(28, 28, 30);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.playersPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.playersList {
+  display: grid;
+  gap: 8px;
+}
+
+.playerRow,
+.playerRowActive {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 9px 10px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  background: rgb(246, 246, 246);
+  color: rgb(28, 28, 30);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playerRowActive {
+  border-color: rgba(52, 199, 89, 0.42);
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.playerAvatar {
+  width: 12px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.playerMain {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.playerMain strong,
+.playerMain span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playerMain strong {
+  font-size: 13px;
+}
+
+.playerMain span,
+.playerMeta,
+.panelEyebrow,
+.playerRound {
+  color: rgb(99, 99, 110);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.playerMeta {
+  color: rgb(52, 199, 89);
+  text-align: right;
+}
+
+.playersEmpty,
+.playerSituation {
+  padding: 12px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.playersEmpty {
+  display: grid;
+  gap: 4px;
+  color: rgb(99, 99, 110);
+}
+
+.playersEmpty strong {
+  color: rgb(28, 28, 30);
+  font-size: 14px;
+}
+
+.playerSituation {
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.playerSituationHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.playerSituationHeader h3 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.playerDreamBox {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgb(246, 246, 246);
+}
+
+.playerDreamBox span,
+.playerDreamBox em {
+  color: rgb(99, 99, 110);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.playerDreamBox strong {
+  font-size: 13px;
+}
+
+.playerStatsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.statTile {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(60, 60, 67, 0.1);
+  border-radius: 8px;
+  background: rgb(247, 247, 247);
+}
+
+.statTile span {
+  color: rgb(99, 99, 110);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statTile strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statTone_cash { color: rgb(28, 28, 30); }
+.statTone_salary { color: rgb(52, 199, 89); }
+.statTone_passive { color: rgb(88, 86, 214); }
+.statTone_expense { color: rgb(255, 59, 48); }
+.statTone_flow { color: rgb(0, 122, 255); }
+.statTone_asset { color: rgb(255, 149, 0); }
+
+.playerItemsBlock {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(60, 60, 67, 0.1);
+}
+
+.playerItemsHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.playerItemsHeader strong {
+  font-size: 13px;
+}
+
+.playerItemsHeader span,
+.playerItemsBlock p {
+  margin: 0;
+  color: rgb(99, 99, 110);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.playerItemsList {
+  display: grid;
+  gap: 6px;
+}
+
+.playerItem {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgb(246, 246, 246);
+}
+
+.playerItem span {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playerItem em {
+  color: rgb(99, 99, 110);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.assetPanel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(60, 60, 67, 0.12);
+  border-radius: 8px;
+  background: rgb(255, 255, 255);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.assetPanelHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.assetPanelHeader strong {
+  font-size: 14px;
+}
+
+.assetPanelHeader span {
+  color: rgba(60, 60, 67, 0.58);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.assetActionGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.assetActionGroup + .assetActionGroup {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(60, 60, 67, 0.1);
+}
+
+.assetAction {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid rgba(60, 60, 67, 0.14);
+  border-radius: 8px;
+  background: rgb(246, 246, 246);
+  color: rgb(28, 28, 30);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.assetAction:hover {
+  border-color: rgb(88, 86, 214);
+  background: rgba(88, 86, 214, 0.08);
+}
+
+.assetAction:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.assetAction span {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assetAction strong {
+  color: rgb(52, 199, 89);
+  font-size: 12px;
+}
+
+.actionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 20, 25, 0.42);
+}
+
+.actionModal {
+  width: min(560px, 100%);
+  padding: 22px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
+  color: rgb(28, 28, 30);
+}
+
+.dealActionModal {
+  width: auto;
+  padding: 8px;
+  border-radius: 32px;
+  box-shadow: 2px 2px 24px rgba(0, 0, 0, 0.08);
+}
+
+.actionEyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: rgb(99, 99, 110);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.actionModal h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.actionModal p {
+  margin: 0 0 18px;
+  color: rgb(72, 72, 80);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.actionGrid button,
+.secondaryAction {
+  min-height: 84px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 8px;
+  background: rgb(248, 248, 250);
+  color: rgb(28, 28, 30);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.actionGrid button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+}
+
+.actionGrid button:hover,
+.secondaryAction:hover {
+  border-color: rgb(52, 199, 89);
+  background: rgba(52, 199, 89, 0.08);
+}
+
+.actionGrid button:disabled,
+.secondaryAction:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.actionGrid button:disabled:hover,
+.secondaryAction:disabled:hover {
+  border-color: rgba(60, 60, 67, 0.18);
+  background: rgb(248, 248, 250);
+}
+
+.actionGrid strong {
+  font-size: 16px;
+}
+
+.actionGrid span {
+  color: rgb(99, 99, 110);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.secondaryAction {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 14px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.dealDeckChoice {
+  display: flex;
+  gap: 12px;
+  padding: 4px;
+  max-width: calc(100vw - 56px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dealDeckChoice::-webkit-scrollbar {
+  display: none;
+}
+
+.dealDeckCard {
+  width: clamp(214px, 24vw, 366px);
+  height: clamp(352px, 39.6vw, 603px);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  padding: clamp(12px, 1.35vw, 20px) clamp(14px, 1.6vw, 24px);
+  border-radius: clamp(14px, 1.6vw, 24px);
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  overflow: hidden;
+  scroll-snap-align: center;
+}
+
+.dealDeckCardSmall {
+  background: linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #4b9100;
+}
+
+.dealDeckCardBig {
+  background: linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #1e945b;
+}
+
+.dealDeckImageArea {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.dealDeckImageArea::before {
+  content: '';
+  position: absolute;
+  width: 56%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffd700;
+  filter: blur(72px);
+  opacity: 0.62;
+}
+
+.dealDeckImageSmall,
+.dealDeckImageBig {
+  position: relative;
+  z-index: 1;
+  display: block;
+  object-fit: contain;
+}
+
+.dealDeckImageSmall {
+  width: min(70%, 246px);
+}
+
+.dealDeckImageBig {
+  width: min(91%, 320px);
+}
+
+.dealDeckText {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(7px, 0.8vw, 12px);
+  margin-bottom: clamp(50px, 6.2vw, 88px);
+  text-align: center;
+}
+
+.dealDeckText h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(18px, 1.75vw, 26px);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.dealDeckText p {
+  max-width: 318px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(11px, 1vw, 15px);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.dealDeckButton {
+  width: 100%;
+  min-height: clamp(32px, 2.7vw, 40px);
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-size: clamp(11px, 1vw, 15px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s, opacity 0.2s;
+}
+
+.dealDeckButton:hover {
+  background: rgba(0, 0, 0, 0.32);
+  transform: translateY(-1px);
+}
+
+.dealDeckButton:disabled {
+  cursor: default;
+  opacity: 0.58;
+  transform: none;
+}
+
+.dealDecisionCard {
+  width: 366px;
+  min-height: 603px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  padding: 20px 24px;
+  border-radius: 24px;
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dealDecisionCardSmall {
+  background: linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #4b9100;
+}
+
+.dealDecisionCardBig {
+  background: linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #1e945b;
+}
+
+.dealDecisionContent {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dealDecisionMeta {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dealDecisionTitle {
+  margin: 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.dealDecisionDescription {
+  margin: 0;
+  overflow: visible;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 21px;
+}
+
+.dealDecisionCard .dealDecisionDescription {
+  color: #fff;
+}
+
+.dealDecisionDetails {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.dealDecisionHeader,
+.dealDecisionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  align-self: stretch;
+}
+
+.dealDecisionHeader {
+  padding-bottom: 4px;
+}
+
+.dealDecisionHeader span,
+.dealDecisionHeader strong {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.dealDecisionRow {
+  min-height: 36px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.dealDecisionRow span,
+.dealDecisionRow strong {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.dealDecisionRow span {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
+}
+
+.dealDecisionRow strong {
+  max-width: 150px;
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+}
+
+.dealDecisionPositive {
+  color: #d7ffae !important;
+}
+
+.dealDecisionNegative {
+  color: #ffd2d2 !important;
+}
+
+.dealDecisionWarning {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.dealDecisionNote {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 17px;
+}
+
+.dealDecisionSpacer {
+  flex: 1;
+}
+
+.dealDecisionActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dealDecisionButton {
+  width: 318px;
+  min-height: 40px;
+  align-self: center;
+  border: none;
+  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.dealDecisionButton:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dealDecisionButton:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dealDecisionButtonGhost {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dealDecisionButtonGhost:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.dealTradeControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dealTradeSelect {
+  width: 318px;
+  min-height: 40px;
+  align-self: center;
+  border: none;
+  border-radius: 24px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.dealTradeSelect option {
+  color: rgb(28, 28, 30);
 }
 
 @media (max-width: 1024px) {
@@ -131,5 +914,83 @@
     max-height: 300px;
     border-radius: 0;
     padding: 12px;
+  }
+
+  .actionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .actionOverlay {
+    padding: 10px;
+  }
+
+  .dealActionModal {
+    max-width: 100%;
+  }
+
+  .dealDeckChoice {
+    max-width: calc(100vw - 28px);
+    scroll-snap-type: x mandatory;
+  }
+
+  .dealDeckCard {
+    width: min(78vw, 300px);
+    height: min(128vw, 494px);
+  }
+}
+
+@media (max-width: 420px) {
+  .actionOverlay {
+    padding: 0;
+  }
+
+  .dealActionModal {
+    width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    padding: 8px 0;
+    box-shadow: none;
+  }
+
+  .dealDecisionCard {
+    width: 280px;
+    min-height: 520px;
+    max-height: calc(100vh - 16px);
+    padding: 16px;
+  }
+
+  .dealDecisionTitle {
+    font-size: 20px;
+    line-height: 25px;
+  }
+
+  .dealDecisionDescription {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .dealDecisionHeader span,
+  .dealDecisionHeader strong {
+    font-size: 19px;
+    line-height: 24px;
+  }
+
+  .dealDecisionRow span,
+  .dealDecisionRow strong {
+    font-size: 13px;
+    line-height: 18px;
+  }
+
+  .dealDecisionButton {
+    width: 100%;
+  }
+
+  .dealTradeSelect {
+    width: 100%;
   }
 }

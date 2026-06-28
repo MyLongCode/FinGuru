@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import styles from './DealSelectionModal.module.css'
 import smallDealSvg from './deal-small.svg'
 import bigDealSvg from './deal-big.svg'
@@ -15,6 +15,7 @@ export default function DealSelectionModal({ isOpen, onClose, onSelect }: DealSe
 
   const handleScroll = useCallback(() => {
     if (!carouselRef.current) return
+
     const scrollLeft = carouselRef.current.scrollLeft
     const cardWidth = 378
     const index = Math.round(scrollLeft / cardWidth)
@@ -25,15 +26,16 @@ export default function DealSelectionModal({ isOpen, onClose, onSelect }: DealSe
 
   const scrollTo = (index: number) => {
     if (!carouselRef.current) return
+
     const cards = carouselRef.current.children
     if (cards[index]) {
-      (cards[index] as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center' })
+      ;(cards[index] as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center' })
     }
   }
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
         <div className={styles.carousel} ref={carouselRef} onScroll={handleScroll}>
           <div className={`${styles.card} ${styles.cardSmall}`}>
             <div className={styles.iconArea}>
@@ -44,7 +46,7 @@ export default function DealSelectionModal({ isOpen, onClose, onSelect }: DealSe
               <h2 className={styles.title}>Мелкая сделка</h2>
               <p className={styles.description}>Нужно мало денег, но и пассивный доход меньше</p>
             </div>
-            <button className={styles.button} onClick={() => onSelect('small')}>
+            <button className={styles.button} type="button" onClick={() => onSelect('small')}>
               Выбрать
             </button>
           </div>
@@ -58,7 +60,7 @@ export default function DealSelectionModal({ isOpen, onClose, onSelect }: DealSe
               <h2 className={styles.title}>Крупная сделка</h2>
               <p className={styles.description}>Нужно много денег (от 6 000 ₽), но пассивный доход высокий</p>
             </div>
-            <button className={styles.button} onClick={() => onSelect('big')}>
+            <button className={styles.button} type="button" onClick={() => onSelect('big')}>
               Выбрать
             </button>
           </div>
@@ -67,10 +69,14 @@ export default function DealSelectionModal({ isOpen, onClose, onSelect }: DealSe
         <div className={styles.dots}>
           <button
             className={`${styles.dot} ${activeIndex === 0 ? styles.dotActive : ''}`}
+            type="button"
+            aria-label="Мелкая сделка"
             onClick={() => scrollTo(0)}
           />
           <button
             className={`${styles.dot} ${activeIndex === 1 ? styles.dotActive : ''}`}
+            type="button"
+            aria-label="Крупная сделка"
             onClick={() => scrollTo(1)}
           />
         </div>

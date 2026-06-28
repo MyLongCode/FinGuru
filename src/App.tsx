@@ -1,12 +1,23 @@
-import { useState, useCallback, useEffect } from 'react'
+﻿import { useState, useCallback, useEffect } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
 import { Routes, Route, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom'
 import RoleCardPage from './pages/RoleCardPage'
 import RoleDetailsPage from './pages/RoleDetailsPage'
 import DreamPage from './pages/DreamPage'
 import GamePage from './pages/GamePage'
-import { icons, roleData, roleKeys, roleNames } from './data/roles'
-import { initSdk, getSdk, getPlayerInfo, getGameState, subscribeDreamSelection, subscribeGameStateUpdate, selectDream, getAssets, type GameState } from './sdk'
+import { icons, roleData, roleKeys } from './data/roles'
+import {
+  initSdk,
+  getSdk,
+  getPlayerInfo,
+  getGameState,
+  subscribeDreamSelection,
+  subscribeGameStateUpdate,
+  selectDream,
+  getAssets,
+  getFinGuruConfig,
+  type GameState,
+} from './sdk'
 import type { DreamItem } from './pages/DreamPage'
 import './App.css'
 
@@ -14,91 +25,102 @@ function RoleDetailsPageRoute() {
   const navigate = useNavigate()
   const { roleName } = useParams<{ roleName: string }>()
   const data = roleName ? roleData[roleName] : undefined
-  if (!data) return <p>Роль не найдена</p>
-  return <RoleDetailsPage
-    icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
-    roleName={data.name}
-    financialData={data.financialData}
-    onStartGame={() => navigate(`/role/${roleName}/dreams`)}
-  />
+
+  if (!data) return <p>Р РѕР»СЊ РЅРµ РЅР°Р№РґРµРЅР°</p>
+
+  return (
+    <RoleDetailsPage
+      icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
+      roleName={data.name}
+      financialData={data.financialData}
+      onStartGame={() => navigate(`/role/${roleName}/dreams` + window.location.search)}
+    />
+  )
+}
+
+function mapDreamsFromState(state: GameState, playerId: string): DreamItem[] {
+  return (state.dreams as any[]).map((dream) => {
+    const takenBy = dream.chosenByPlayerId ?? null
+    const status: DreamItem['status'] = takenBy == null ? 'default' : (takenBy === playerId ? 'selected' : 'chosen')
+    const player = takenBy ? state.players.find(p => p.playerId === takenBy) : null
+
+    return {
+      id: dream.id,
+      title: dream.title ?? dream.number ?? `РњРµС‡С‚Р° ${dream.id}`,
+      number: dream.number ?? String(dream.id),
+      description: dream.description ?? '',
+      price: dream.price ?? 0,
+      status,
+      takenByPlayerId: takenBy ?? undefined,
+      playerName: player?.displayName,
+      color: player?.color,
+      iconKey: dream.iconKey,
+    }
+  })
+}
+
+function mapStandaloneDreams(dreams: GameState['dreams']): DreamItem[] {
+  return dreams.map((dream) => ({
+    id: dream.id,
+    title: dream.title ?? dream.number ?? `РњРµС‡С‚Р° ${dream.id}`,
+    number: dream.number ?? String(dream.id),
+    description: dream.description ?? '',
+    price: dream.price ?? 0,
+    status: 'default',
+    takenByPlayerId: undefined,
+  }))
 }
 
 function DreamPageRoute() {
   const navigate = useNavigate()
   const { roleName } = useParams<{ roleName: string }>()
   const data = roleName ? roleData[roleName] : undefined
-  const { players, currentPlayerId } = useGame()
+  const { currentPlayerId } = useGame()
   const [dreams, setDreams] = useState<DreamItem[]>(() => [])
   const [assets, setAssets] = useState<{ key: string; url: string }[]>(() => [])
   const [myColor, setMyColor] = useState<string | undefined>(undefined)
 
-  const currentPlayer = players.find(p => p.id === currentPlayerId)
-
   const params = new URLSearchParams(window.location.search)
-  const roomId = params.get('roomId') ?? ''
-  const sdkPlayerId = params.get('playerId') ?? currentPlayerId ?? ''
+  const roomId = params.get('roomId') ?? sessionStorage.getItem('roomId') ?? ''
+  const sdkPlayerId = params.get('playerId') ?? sessionStorage.getItem('playerId') ?? currentPlayerId ?? ''
 
-  useEffect(() => {
-    if (!roomId || !sdkPlayerId) return
-    const sdk = getSdk()
-    getPlayerInfo(sdk, roomId, sdkPlayerId).then(info => {
-      if (info.color) setMyColor(info.color)
-    })
-
-    // initial fetch of game state -> dreams and assets
-    getGameState(sdk, roomId).then(state => {
-      if (!state?.dreams) return
-      // map server dreams to DreamItem shape
-      setDreams((state.dreams as any[]).map((sd) => {
-        const takenBy = sd.chosenByPlayerId ?? null
-        const status: DreamItem['status'] = takenBy == null ? 'default' : (takenBy === sdkPlayerId ? 'selected' : 'chosen')
-        return {
-          id: sd.id,
-          title: sd.title ?? sd.number ?? `Мечта ${sd.id}`,
-          number: sd.number ?? String(sd.id),
-          description: sd.description ?? '',
-          price: sd.price ?? sd.price ?? 0,
-          status,
-          takenByPlayerId: takenBy ?? undefined,
-          playerName: takenBy ? (state.players.find(p => p.playerId === takenBy)?.displayName ?? 'Игрок') : undefined,
-          color: takenBy ? (state.players.find(p => p.playerId === takenBy)?.color) : undefined,
-        }
-      }))
-    }).catch(() => {})
-
-    getAssets(sdk, roomId).then(a => {
-      if (!a) return
-      setAssets(a)
-    }).catch(() => {})
-
-    const applyDreamsFromState = (state: GameState) => {
-      if (!state?.dreams) return
-      setDreams((state.dreams as any[]).map((sd) => {
-        const takenBy = sd.chosenByPlayerId ?? null
-        const status: DreamItem['status'] = takenBy == null ? 'default' : (takenBy === sdkPlayerId ? 'selected' : 'chosen')
-        return {
-          id: sd.id,
-          title: sd.title ?? sd.number ?? `Мечта ${sd.id}`,
-          number: sd.number ?? String(sd.id),
-          description: sd.description ?? '',
-          price: sd.price ?? 0,
-          status,
-          takenByPlayerId: takenBy ?? undefined,
-          playerName: takenBy ? (state.players.find(p => p.playerId === takenBy)?.displayName ?? 'Игрок') : undefined,
-          color: takenBy ? (state.players.find(p => p.playerId === takenBy)?.color) : undefined,
-        }
-      }))
+  const applyGameState = useCallback((state: GameState) => {
+    if (state.dreams?.length) {
+      setDreams(mapDreamsFromState(state, sdkPlayerId))
     }
 
-    const unsubState = subscribeGameStateUpdate(sdk, roomId, (state) => {
-      applyDreamsFromState(state)
-      if (state.phase === 'playing') {
-        const me = state.players.find(p => p.playerId === sdkPlayerId)
-        if (me?.dreamId != null) {
-          navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
-        }
+    if (state.phase === 'playing' || state.phase === 'gameOver') {
+      const me = state.players.find(p => p.playerId === sdkPlayerId)
+      if (me?.roleId) {
+        navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
       }
-    })
+    }
+  }, [navigate, sdkPlayerId])
+
+  useEffect(() => {
+    getFinGuruConfig().then(config => {
+      if (config?.dreams?.length) {
+        setDreams(prev => prev.length > 0 ? prev : mapStandaloneDreams(config.dreams))
+      }
+    }).catch(() => {})
+
+    if (!roomId) return
+    const sdk = getSdk()
+
+    sdkPlayerId ? getPlayerInfo(sdk, roomId, sdkPlayerId).then(info => {
+      if (info.color) setMyColor(info.color)
+    }) : Promise.resolve({ roleId: null, color: null })
+
+    getGameState(sdk, roomId).then(state => {
+      if (state) applyGameState(state)
+    }).catch(() => {})
+
+
+    getAssets(sdk, roomId).then(a => {
+      if (a) setAssets(a)
+    }).catch(() => {})
+
+    const unsubState = subscribeGameStateUpdate(sdk, roomId, applyGameState)
 
     const unsubDreams = subscribeDreamSelection(sdk, roomId, sdkPlayerId, (update) => {
       setDreams(prev => prev.map(dream => {
@@ -120,32 +142,42 @@ function DreamPageRoute() {
       unsubState()
       unsubDreams()
     }
-  }, [roomId, sdkPlayerId, navigate])
+  }, [roomId, sdkPlayerId, applyGameState])
 
   const handleDreamSelect = useCallback((dreamId: number) => {
     if (!roomId || !sdkPlayerId) return
+    setDreams(prev => prev.map(dream => ({
+      ...dream,
+      status: dream.id === dreamId ? 'selected' : (dream.takenByPlayerId ? dream.status : 'default'),
+      takenByPlayerId: dream.id === dreamId ? sdkPlayerId : (dream.takenByPlayerId === sdkPlayerId ? undefined : dream.takenByPlayerId),
+      color: dream.id === dreamId ? myColor : (dream.takenByPlayerId === sdkPlayerId ? undefined : dream.color),
+      playerName: dream.id === dreamId ? undefined : (dream.takenByPlayerId === sdkPlayerId ? undefined : dream.playerName),
+    })))
     const sdk = getSdk()
     selectDream(sdk, roomId, sdkPlayerId, dreamId)
-  }, [roomId, sdkPlayerId])
+  }, [roomId, sdkPlayerId, myColor])
 
-  if (!data) return <p>Роль не найдена</p>
-  return <DreamPage
-    icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
-    roleName={data.name}
-    monthlyCashFlow={data.financialData.monthlyCashFlow}
-    dreams={dreams}
-    assets={assets}
-    currentPlayerId={sdkPlayerId}
-    onDreamSelect={handleDreamSelect}
-    onStartGame={() => navigate(`/role/${roleName}/game` + window.location.search)}
-  />
+  if (!data) return <p>Р РѕР»СЊ РЅРµ РЅР°Р№РґРµРЅР°</p>
+
+  return (
+    <DreamPage
+      icon={icons[`/src/assets/roles/${roleName}.svg`] ?? ''}
+      roleName={data.name}
+      monthlyCashFlow={data.financialData.monthlyCashFlow}
+      dreams={dreams}
+      assets={assets}
+      currentPlayerId={sdkPlayerId}
+      onDreamSelect={handleDreamSelect}
+      onStartGame={() => navigate(`/role/${roleName}/game` + window.location.search)}
+    />
+  )
 }
 
 function RandomRoleRedirect() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const roomId = searchParams.get('roomId') ?? ''
-  const sdkPlayerId = searchParams.get('playerId') ?? ''
+  const roomId = searchParams.get('roomId') ?? sessionStorage.getItem('roomId') ?? ''
+  const sdkPlayerId = searchParams.get('playerId') ?? sessionStorage.getItem('playerId') ?? ''
   const [randomRole] = useState(() => roleKeys[Math.floor(Math.random() * roleKeys.length)])
   const [checking, setChecking] = useState(true)
 
@@ -154,13 +186,15 @@ function RandomRoleRedirect() {
       setChecking(false)
       return
     }
+
     const sdk = getSdk()
     const timeout = setTimeout(() => setChecking(false), 2000)
+
     getGameState(sdk, roomId).then(state => {
       clearTimeout(timeout)
-      if (state?.phase === 'playing') {
+      if (state?.phase === 'playing' || state?.phase === 'gameOver') {
         const me = state.players.find(p => p.playerId === sdkPlayerId)
-        if (me?.dreamId != null) {
+        if (me?.roleId) {
           navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
           return
         }
@@ -170,7 +204,7 @@ function RandomRoleRedirect() {
       clearTimeout(timeout)
       setChecking(false)
     })
-  }, [])
+  }, [navigate, roomId, sdkPlayerId])
 
   if (checking) return null
   return <Navigate to={`/role/${randomRole}`} replace />
@@ -188,16 +222,19 @@ function App() {
   return (
     <GameProvider>
       <Routes>
-      <Route path="/role/:roleName" element={
-        <RoleCardPage onTimeout={(roleName) => navigate(`/role/${roleName}/details`)} />
-      } />
-      <Route path="/role/:roleName/details" element={<RoleDetailsPageRoute />} />
-      <Route path="/role/:roleName/dreams" element={<DreamPageRoute />} />
-      <Route path="/role/:roleName/game" element={<GamePage />} />
-      <Route path="*" element={<RandomRoleRedirect />} />
+        <Route path="/role/:roleName" element={
+          <RoleCardPage onTimeout={(roleName) => navigate(`/role/${roleName}/details` + window.location.search)} />
+        } />
+        <Route path="/role/:roleName/details" element={<RoleDetailsPageRoute />} />
+        <Route path="/role/:roleName/dreams" element={<DreamPageRoute />} />
+        <Route path="/role/:roleName/game" element={<GamePage />} />
+        <Route path="*" element={<RandomRoleRedirect />} />
       </Routes>
     </GameProvider>
   )
 }
 
 export default App
+
+
+

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import styles from './Dashboard.module.css'
 import ProgressBar from './ProgressBar'
 import DashboardHeader from './DashboardHeader'
 import { formatCurrency } from '../utils/format'
+import type { FinGuruAsset, FinGuruLiability } from '../sdk'
 
 export interface DashboardStats {
   cash: number
@@ -38,68 +39,235 @@ export interface DashboardProps {
   goalTarget: number
   progressAmount: number
   statuses: DashboardStatus[]
-  assetCategories: AssetCategory[]
+  assetCategories?: AssetCategory[]
+  assets?: FinGuruAsset[]
+  liabilities?: FinGuruLiability[]
+  cash?: number
+  disabled?: boolean
   icon?: string
+  onSellAsset?: (assetId: string) => void
+  onPayLiability?: (liabilityId: string) => void
 }
 
-function MiniCard({ label, amount, amountColor }: { label: string; amount: string; amountColor: string }) {
+function MoneyCard({
+  label,
+  amount,
+  tone,
+  large = false,
+}: {
+  label: string
+  amount: number
+  tone: 'cash' | 'income' | 'expense' | 'passive' | 'flow'
+  large?: boolean
+}) {
   return (
-    <div className={styles.miniCard}>
-      <span className={styles.miniLabel}>{label}</span>
-      <span className={styles.miniAmount} style={{ color: amountColor }}>{amount}</span>
+    <div className={large ? `${styles.moneyCard} ${styles.moneyCardLarge} ${styles[`moneyCard_${tone}`]}` : styles.moneyCard}>
+      <span className={styles.moneyLabel}>{label}</span>
+      <strong className={`${styles.moneyAmount} ${styles[`tone_${tone}`]}`}>{formatCurrency(amount)}</strong>
     </div>
   )
 }
 
-function LargeCard({ label, amount, bgColor }: { label: string; amount: string; bgColor: string }) {
-  return (
-    <div className={styles.largeCard} style={{ background: bgColor }}>
-      <span className={styles.largeLabel}>{label}</span>
-      <span className={styles.largeAmount}>{amount}</span>
-    </div>
-  )
-}
-
-function AssetCategoryCard({ category, defaultExpanded }: { category: AssetCategory; defaultExpanded?: boolean }) {
-  const [expanded, setExpanded] = useState(defaultExpanded ?? false)
-  const itemLabels = Array.from({ length: category.itemCount }, (_, i) => `${i + 1}`)
+function Section({
+  title,
+  children,
+  defaultExpanded = true,
+}: {
+  title: string
+  children: ReactNode
+  defaultExpanded?: boolean
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   return (
-    <div className={styles.assetCard}>
-      <button className={styles.assetHeader} onClick={() => setExpanded(!expanded)}>
-        <div className={styles.assetHeaderRow}>
-          <span className={styles.assetTitle}>{category.title}</span>
-          <span className={styles.assetCount}>{category.summary.count}</span>
-          <span className={styles.assetValue}>{category.summary.totalValue}</span>
-        </div>
-        <span className={`${styles.assetArrow} ${expanded ? styles.assetArrowUp : ''}`}>▼</span>
+    <section className={styles.financialSection}>
+      <button className={styles.sectionHeader} type="button" onClick={() => setExpanded(!expanded)}>
+        <span className={`${styles.sectionArrow} ${expanded ? styles.sectionArrowOpen : ''}`}>⌄</span>
+        <span>{title}</span>
       </button>
-      {expanded && (
-        <div className={styles.assetGrid}>
-          <div className={styles.assetGridHeader}>
-            <span className={styles.assetGridLabel} />
-            {itemLabels.map((label, i) => (
-              <span key={i} className={styles.assetGridItem}>{label}</span>
-            ))}
-          </div>
-          {category.rows.map((row, i) => (
-            <div key={i} className={styles.assetGridRow}>
-              <span className={styles.assetGridLabel}>{row.label}</span>
-              {row.values.map((val, j) => (
-                <span key={j} className={styles.assetGridValue}>{val}</span>
-              ))}
+      {expanded && <div className={styles.sectionBody}>{children}</div>}
+    </section>
+  )
+}
+
+function groupByType<T extends { assetType?: string; liabilityType?: string }>(
+  items: T[],
+  key: 'assetType' | 'liabilityType',
+) {
+  return items.reduce<Record<string, T[]>>((acc, item) => {
+    const group = item[key] || 'other'
+    acc[group] = [...(acc[group] ?? []), item]
+    return acc
+  }, {})
+}
+
+function getTypeLabel(type: string) {
+  switch (type) {
+    case 'smallDeal':
+      return 'Мелкие сделки'
+    case 'bigDeal':
+      return 'Крупные сделки'
+    case 'creditCard':
+      return 'Кредитные карты'
+    case 'carLoan':
+      return 'Автокредит'
+    case 'mortgage':
+      return 'Ипотека'
+    case 'smallLoan':
+      return 'Мелкие кредиты'
+    default:
+      return 'Прочее'
+  }
+}
+
+function AssetsTable({
+  assets,
+  disabled,
+  onSellAsset,
+}: {
+  assets: FinGuruAsset[]
+  disabled: boolean
+  onSellAsset?: (assetId: string) => void
+}) {
+  if (assets.length === 0) {
+    return <p className={styles.emptyText}>Активов пока нет</p>
+  }
+
+  const grouped = groupByType(assets, 'assetType')
+
+  return (
+    <div className={styles.groupStack}>
+      {Object.entries(grouped).map(([type, group]) => {
+        const passive = group.reduce((sum, asset) => sum + asset.cashFlow, 0)
+        const value = group.reduce((sum, asset) => sum + asset.cost, 0)
+
+        return (
+          <div key={type} className={styles.tableGroup}>
+            <div className={styles.groupSummary}>
+              <span>{getTypeLabel(type)}</span>
+              <strong className={styles.tone_passive}>{formatCurrency(passive)}</strong>
+              <strong className={styles.tone_income}>{formatCurrency(value)}</strong>
             </div>
-          ))}
-        </div>
-      )}
+            <div className={styles.financeTable}>
+              <span className={styles.tableHead}>Актив</span>
+              <span className={styles.tableHead}>Пассив. доход ₽</span>
+              <span className={styles.tableHead}>Актив ₽</span>
+              <span className={styles.tableHead}>Кол-во</span>
+              <span className={styles.tableHead} />
+              {group.map(asset => {
+                const salePrice = Math.round(asset.cost * 0.8)
+                return (
+                  <div key={asset.id || asset.title} className={styles.tableRow}>
+                    <span>{asset.title || 'Актив'}</span>
+                    <strong className={styles.tone_passive}>{formatCurrency(asset.cashFlow)}</strong>
+                    <strong className={styles.tone_income}>{formatCurrency(asset.cost)}</strong>
+                    <span>{asset.quantity || 1}</span>
+                    {onSellAsset ? (
+                      <button
+                        className={styles.rowAction}
+                        type="button"
+                        disabled={disabled || !asset.id}
+                        title={`Продать за ${formatCurrency(salePrice)}`}
+                        onClick={() => onSellAsset(asset.id)}
+                      >
+                        Продать
+                      </button>
+                    ) : <span />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function LiabilitiesTable({
+  liabilities,
+  cash,
+  disabled,
+  onPayLiability,
+}: {
+  liabilities: FinGuruLiability[]
+  cash: number
+  disabled: boolean
+  onPayLiability?: (liabilityId: string) => void
+}) {
+  if (liabilities.length === 0) {
+    return <p className={styles.emptyText}>Пассивов пока нет</p>
+  }
+
+  const grouped = groupByType(liabilities, 'liabilityType')
+
+  return (
+    <div className={styles.groupStack}>
+      {Object.entries(grouped).map(([type, group]) => {
+        const payment = group.reduce((sum, liability) => sum + liability.payment, 0)
+        const balance = group.reduce((sum, liability) => sum + liability.balance, 0)
+
+        return (
+          <div key={type} className={styles.tableGroup}>
+            <div className={styles.groupSummary}>
+              <span>{getTypeLabel(type)}</span>
+              <strong className={styles.tone_expense}>{formatCurrency(payment)}</strong>
+              <strong className={styles.tone_expense}>{formatCurrency(balance)}</strong>
+            </div>
+            <div className={styles.financeTableLiability}>
+              <span className={styles.tableHead}>Статья</span>
+              <span className={styles.tableHead}>Расход в мес. ₽</span>
+              <span className={styles.tableHead}>Долг ₽</span>
+              <span className={styles.tableHead} />
+              {group.map(liability => {
+                const canPay = cash >= liability.balance
+                return (
+                  <div key={liability.id || liability.title} className={styles.tableRowLiability}>
+                    <span>{liability.title || 'Пассив'}</span>
+                    <strong className={styles.tone_expense}>{formatCurrency(liability.payment)}</strong>
+                    <strong className={styles.tone_expense}>{formatCurrency(liability.balance)}</strong>
+                    {onPayLiability ? (
+                      <button
+                        className={styles.rowAction}
+                        type="button"
+                        disabled={disabled || !canPay || !liability.id || liability.balance <= 0}
+                        title={canPay ? 'Погасить долг' : 'Не хватает наличных'}
+                        onClick={() => onPayLiability(liability.id)}
+                      >
+                        Погасить
+                      </button>
+                    ) : <span />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 export default function Dashboard({
-  playerName, playerRole, moveNumber, stats,
-  goalTarget, progressAmount, statuses, assetCategories, icon,
+  playerName,
+  playerRole,
+  moveNumber,
+  stats,
+  goalTarget,
+  progressAmount,
+  statuses,
+  assets = [],
+  liabilities = [],
+  cash = stats.cash,
+  disabled = false,
+  icon,
+  onSellAsset,
+  onPayLiability,
 }: DashboardProps) {
+  const totalIncome = stats.salary + stats.passiveIncome
+  const liabilitiesPayment = liabilities.reduce((sum, liability) => sum + liability.payment, 0)
+  const totalDebt = liabilities.reduce((sum, liability) => sum + liability.balance, 0)
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -108,40 +276,85 @@ export default function Dashboard({
           playerRole={playerRole}
           moveNumber={moveNumber}
         />
-        <div className={styles.avatar}>
-          <div className={styles.avatarCircle} />
-          <div className={styles.avatarRing} />
-        </div>
+        {icon ? (
+          <img className={styles.avatarIcon} src={icon} alt="" />
+        ) : (
+          <div className={styles.avatar}>
+            <div className={styles.avatarCircle} />
+            <div className={styles.avatarRing} />
+          </div>
+        )}
       </div>
 
       <div className={styles.statsSection}>
         <div className={styles.miniCards}>
-          <MiniCard label="Наличные" amount={formatCurrency(stats.cash)} amountColor="rgb(0, 0, 0)" />
-          <MiniCard label="Зарплата" amount={formatCurrency(stats.salary)} amountColor="rgb(52, 199, 89)" />
-          <MiniCard label="Расходы" amount={formatCurrency(stats.expenses)} amountColor="rgb(255, 59, 48)" />
+          <MoneyCard label="Наличные" amount={stats.cash} tone="cash" />
+          <MoneyCard label="Зарплата" amount={stats.salary} tone="income" />
+          <MoneyCard label="Расходы" amount={stats.expenses} tone="expense" />
         </div>
         <div className={styles.largeCards}>
-          <LargeCard label="Пассивный доход" amount={formatCurrency(stats.passiveIncome)} bgColor="rgb(88, 86, 214)" />
-          <LargeCard label="Денежный поток" amount={formatCurrency(stats.cashFlow)} bgColor="rgb(52, 199, 89)" />
+          <MoneyCard label="Пассивный доход" amount={stats.passiveIncome} tone="passive" large />
+          <MoneyCard label="Денежный поток" amount={stats.cashFlow} tone="flow" large />
         </div>
       </div>
 
       <ProgressBar goalAmount={goalTarget} progressAmount={progressAmount} />
 
-      <div className={styles.statusSection}>
-        {statuses.map((s, i) => (
-          <div key={i} className={styles.statusChip} style={{ background: s.bgColor }}>
-            <span className={styles.statusLabel}>{s.label}</span>
-            <span className={styles.statusDescription}>{s.description}</span>
-          </div>
-        ))}
-      </div>
+      {statuses.length > 0 && (
+        <div className={styles.statusSection}>
+          {statuses.map((status, index) => (
+            <div key={`${status.label}-${index}`} className={styles.statusChip} style={{ background: status.bgColor }}>
+              <span className={styles.statusLabel}>{status.label}</span>
+              <span className={styles.statusDescription}>{status.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className={styles.assetsSection}>
-        {assetCategories.map((cat, i) => (
-          <AssetCategoryCard key={i} category={cat} defaultExpanded={i === 0} />
-        ))}
-      </div>
+      <Section title="Доходы и активы" defaultExpanded>
+        <div className={styles.totalStrip}>
+          <span>
+            Общий доход
+            <strong className={styles.tone_income}>{formatCurrency(totalIncome)}</strong>
+          </span>
+          <span>
+            Пассив. доход
+            <strong className={styles.tone_passive}>{formatCurrency(stats.passiveIncome)}</strong>
+          </span>
+          <span>
+            Денеж. поток
+            <strong className={styles.tone_flow}>{formatCurrency(stats.cashFlow)}</strong>
+          </span>
+        </div>
+        <div className={styles.baseLine}>
+          <span>Зарплата</span>
+          <strong className={styles.tone_income}>{formatCurrency(stats.salary)}</strong>
+        </div>
+        <AssetsTable assets={assets} disabled={disabled} onSellAsset={onSellAsset} />
+      </Section>
+
+      <Section title="Расходы и пассивы" defaultExpanded>
+        <div className={styles.totalStrip}>
+          <span>
+            Общие расходы
+            <strong className={styles.tone_expense}>{formatCurrency(stats.expenses)}</strong>
+          </span>
+          <span>
+            Платежи
+            <strong className={styles.tone_expense}>{formatCurrency(liabilitiesPayment)}</strong>
+          </span>
+          <span>
+            Долги
+            <strong className={styles.tone_expense}>{formatCurrency(totalDebt)}</strong>
+          </span>
+        </div>
+        <LiabilitiesTable
+          liabilities={liabilities}
+          cash={cash}
+          disabled={disabled}
+          onPayLiability={onPayLiability}
+        />
+      </Section>
     </div>
   )
 }
