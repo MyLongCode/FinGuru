@@ -465,37 +465,245 @@
 
 @media (max-width: 480px) {
   .container {
+    gap: 18px;
+    padding: 18px 16px 116px;
+    border-radius: 28px;
+  }
+
+  .header {
+    padding: 0 4px;
+  }
+
+  .statsSection {
     gap: 12px;
-    padding: 8px 3px 10px;
+    padding: 0;
+  }
+
+  .miniCards {
+    gap: 6px;
+  }
+
+  .largeCards {
+    gap: 8px;
   }
 
   .moneyCard {
-    padding: 6px 7px;
+    min-height: 64px;
+    padding: 9px 10px;
+    border-radius: 18px;
   }
 
-  .moneyLabel,
-  .statusLabel,
-  .statusDescription {
-    font-size: 11px;
+  .moneyCardLarge {
+    min-height: 66px;
+  }
+
+  .moneyLabel {
+    font-size: 12px;
+    line-height: 15px;
   }
 
   .moneyAmount {
+    font-size: 18px;
+    line-height: 22px;
+  }
+
+  .salaryClaimButton {
+    min-height: 44px;
+    border-radius: 22px;
+    font-size: 15px;
+  }
+
+  .statusSection {
+    gap: 8px;
+    padding: 0;
+  }
+
+  .statusChip {
+    min-height: 40px;
+    border-radius: 18px;
+    padding: 9px 14px;
+  }
+
+  .statusLabel,
+  .statusDescription {
+    font-size: 12px;
+  }
+
+  .sectionHeader {
+    min-height: 42px;
+    padding: 8px 4px 0;
+    gap: 8px;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 34px;
+  }
+
+  .sectionArrow {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+  }
+
+  .sectionBody {
+    gap: 18px;
+    padding: 14px 4px 18px;
+  }
+
+  .totalStrip {
+    gap: 10px;
+  }
+
+  .totalStrip span {
+    gap: 6px;
+    font-size: 15px;
+    line-height: 19px;
+    text-align: center;
+  }
+
+  .totalStrip strong {
+    font-size: 22px;
+    line-height: 27px;
+  }
+
+  .baseLine {
+    min-height: 34px;
+    font-size: 15px;
+  }
+
+  .baseLine strong {
     font-size: 16px;
   }
 
+  .groupStack {
+    gap: 18px;
+  }
+
+  .tableGroup {
+    gap: 12px;
+    padding-bottom: 18px;
+  }
+
+  .groupSummary {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+    min-height: 30px;
+    font-size: 20px;
+    line-height: 26px;
+  }
+
   .financeTable {
-    grid-template-columns: minmax(62px, 1.2fr) minmax(48px, 0.75fr) minmax(48px, 0.75fr) minmax(28px, 0.42fr) minmax(54px, 0.68fr);
+    grid-template-columns: minmax(82px, 1.2fr) minmax(62px, 0.78fr) minmax(62px, 0.78fr) minmax(40px, 0.45fr);
   }
 
   .financeTableLiability {
-    grid-template-columns: minmax(72px, 1.2fr) minmax(52px, 0.75fr) minmax(52px, 0.75fr) minmax(58px, 0.68fr);
+    grid-template-columns: minmax(90px, 1.16fr) minmax(66px, 0.78fr) minmax(66px, 0.78fr) minmax(86px, 0.86fr);
   }
 
-  .tableHead,
+  .tableHead {
+    min-height: 34px;
+    font-size: 13px;
+    line-height: 16px;
+    text-align: center;
+  }
+
   .tableRow > span,
   .tableRow > strong,
   .tableRowLiability > span,
   .tableRowLiability > strong {
-    font-size: 10px;
+    min-height: 42px;
+    padding: 6px 4px;
+    font-size: 14px;
+    line-height: 17px;
+  }
+
+  .rowAction {
+    width: min(100%, 92px);
+    min-height: 34px;
+    border-radius: 18px;
+    font-size: 13px;
+  }
+
+  .creditInfo {
+    min-height: 62px;
+    margin-bottom: 96px;
+    padding: 0;
+  }
+
+  .creditInfo span {
+    font-size: 17px;
+    line-height: 24px;
+    white-space: nowrap;
+  }
+
+  .creditInfo strong {
+    font-size: 20px;
+    line-height: 26px;
+  }
+
+  .creditButton {
+    min-height: 48px;
+    padding: 9px 20px;
+    border-radius: 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .container {
+    padding: 16px 12px 112px;
+  }
+
+  .sectionHeader {
+    font-size: 23px;
+    line-height: 30px;
+  }
+
+  .totalStrip span {
+    font-size: 13px;
+    line-height: 17px;
+  }
+
+  .totalStrip strong {
+    font-size: 19px;
+    line-height: 24px;
+  }
+
+  .groupSummary {
+    font-size: 17px;
+    line-height: 22px;
+  }
+
+  .financeTable {
+    grid-template-columns: minmax(72px, 1.18fr) minmax(54px, 0.76fr) minmax(54px, 0.76fr) minmax(32px, 0.42fr);
+  }
+
+  .financeTableLiability {
+    grid-template-columns: minmax(74px, 1.08fr) minmax(54px, 0.7fr) minmax(54px, 0.7fr) minmax(72px, 0.74fr);
+  }
+
+  .tableHead {
+    font-size: 11px;
+  }
+
+  .tableRow > span,
+  .tableRow > strong,
+  .tableRowLiability > span,
+  .tableRowLiability > strong {
+    font-size: 12px;
+    line-height: 15px;
+  }
+
+  .rowAction {
+    width: min(100%, 76px);
+    font-size: 11px;
+  }
+
+  .creditInfo {
+    padding-left: 12px;
+  }
+
+  .creditButton {
+    padding: 8px 14px;
+    font-size: 15px;
   }
 }

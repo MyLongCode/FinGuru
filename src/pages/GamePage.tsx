@@ -845,39 +845,41 @@ function EventCard({
 
   return (
     <article className={`${styles.eventCard} ${toneClass}`}>
-      <div className={styles.eventCardHeader}>
-        <span>{card.sectorLabel || getFallbackEventTitle(card.sectorType, '')}</span>
-      </div>
-
-      <div className={styles.eventCardBody}>
-        <span className={styles.eventCardPlayer} style={{ color: card.playerColor }}>
-          {card.playerName}
-        </span>
-        <h2>{card.title}</h2>
-        <p>{card.description}</p>
-      </div>
-
-      {details.length > 0 && (
-        <div className={styles.eventCardDetails}>
-          {details.map(detail => (
-            <div className={styles.eventCardDetail} key={detail.label}>
-              <span>{detail.label}</span>
-              <strong className={detail.tone === 'positive' ? styles.eventCardPositive : detail.tone === 'negative' ? styles.eventCardNegative : undefined}>
-                {detail.value}
-              </strong>
-            </div>
-          ))}
+      <div className={styles.eventCardMain}>
+        <div className={styles.eventCardHeader}>
+          <span>{card.sectorLabel || getFallbackEventTitle(card.sectorType, '')}</span>
         </div>
-      )}
 
-      <div className={styles.eventCardSpacer} />
+        <div className={styles.eventCardBody}>
+          <span className={styles.eventCardPlayer} style={{ color: card.playerColor }}>
+            {card.playerName}
+          </span>
+          <h2>{card.title}</h2>
+          <p>{card.description}</p>
+        </div>
+
+        {details.length > 0 && (
+          <div className={styles.eventCardDetails}>
+            {details.map(detail => (
+              <div className={styles.eventCardDetail} key={detail.label}>
+                <span>{detail.label}</span>
+                <strong className={detail.tone === 'positive' ? styles.eventCardPositive : detail.tone === 'negative' ? styles.eventCardNegative : undefined}>
+                  {detail.value}
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {actions ? (
         <div className={styles.eventCardActions}>{actions}</div>
       ) : (
-        <button className={styles.eventCardClose} type="button" onClick={onClose}>
-          Понятно
-        </button>
+        <div className={styles.eventCardActions}>
+          <button className={styles.eventCardClose} type="button" onClick={onClose}>
+            Понятно
+          </button>
+        </div>
       )}
     </article>
   )
@@ -988,38 +990,38 @@ function DealDecisionCard({
 
   return (
     <div className={`${styles.dealDecisionCard} ${cardClass}`}>
-      <div className={styles.dealDecisionContent}>
-        {meta && <span className={styles.dealDecisionMeta}>{meta}</span>}
-        <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
-        <p className={styles.dealDecisionDescription}>{option.description}</p>
-      </div>
-
-      <div className={styles.dealDecisionDetails}>
-        <div className={styles.dealDecisionHeader}>
-          <span>{isStockDeal ? 'Итого' : 'Взнос'}</span>
-          <strong>{formatMoney(totalCost)}</strong>
+      <div className={styles.dealDecisionMain}>
+        <div className={styles.dealDecisionContent}>
+          {meta && <span className={styles.dealDecisionMeta}>{meta}</span>}
+          <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
+          <p className={styles.dealDecisionDescription}>{option.description}</p>
         </div>
-        {details.map(detail => (
-          <div className={styles.dealDecisionRow} key={detail.label}>
-            <span>{detail.label}</span>
-            <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
-              {detail.value}
-            </strong>
-          </div>
-        ))}
-        {cannotAfford && (
-          <div className={styles.dealDecisionWarning}>
-            Не хватает {formatMoney(totalCost - cash)}
-          </div>
-        )}
-        {!isOffer && isRealEstate && (
-          <div className={styles.dealDecisionNote}>
-            Недвижимость может купить только игрок, которому выпала карта.
-          </div>
-        )}
-      </div>
 
-      <div className={styles.dealDecisionSpacer} />
+        <div className={styles.dealDecisionDetails}>
+          <div className={styles.dealDecisionHeader}>
+            <span>{isStockDeal ? 'Итого' : 'Взнос'}</span>
+            <strong>{formatMoney(totalCost)}</strong>
+          </div>
+          {details.map(detail => (
+            <div className={styles.dealDecisionRow} key={detail.label}>
+              <span>{detail.label}</span>
+              <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
+                {detail.value}
+              </strong>
+            </div>
+          ))}
+          {cannotAfford && (
+            <div className={styles.dealDecisionWarning}>
+              Не хватает {formatMoney(totalCost - cash)}
+            </div>
+          )}
+          {!isOffer && isRealEstate && (
+            <div className={styles.dealDecisionNote}>
+              Недвижимость может купить только игрок, которому выпала карта.
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className={styles.dealDecisionActions}>
         {isStockDeal && canAcceptOffer && (
@@ -1157,59 +1159,59 @@ function AuctionCard({
 
   return (
     <div className={`${styles.dealDecisionCard} ${styles.auctionCard}`}>
-      <div className={styles.dealDecisionContent}>
-        <span className={styles.dealDecisionMeta}>Аукцион{meta ? ` · ${meta}` : ''}</span>
-        <h2 className={styles.dealDecisionTitle}>{deal.title || 'Сделка на аукционе'}</h2>
-        <p className={styles.dealDecisionDescription}>
-          {deal.description || 'Игроки делают ставки за право купить эту сделку.'}
-        </p>
-      </div>
-
-      <div className={styles.auctionSummary}>
-        <div>
-          <span>Продавец</span>
-          <strong>{seller?.displayName ?? 'Игрок'}</strong>
+      <div className={styles.dealDecisionMain}>
+        <div className={styles.dealDecisionContent}>
+          <span className={styles.dealDecisionMeta}>Аукцион{meta ? ` · ${meta}` : ''}</span>
+          <h2 className={styles.dealDecisionTitle}>{deal.title || 'Сделка на аукционе'}</h2>
+          <p className={styles.dealDecisionDescription}>
+            {deal.description || 'Игроки делают ставки за право купить эту сделку.'}
+          </p>
         </div>
-        <div>
-          <span>Лидер</span>
-          <strong>{leader?.displayName ?? 'Ставок ещё нет'}</strong>
+
+        <div className={styles.auctionSummary}>
+          <div>
+            <span>Продавец</span>
+            <strong>{seller?.displayName ?? 'Игрок'}</strong>
+          </div>
+          <div>
+            <span>Лидер</span>
+            <strong>{leader?.displayName ?? 'Ставок ещё нет'}</strong>
+          </div>
+        </div>
+
+        <div className={styles.dealDecisionDetails}>
+          {details.map(detail => (
+            <div className={styles.dealDecisionRow} key={detail.label}>
+              <span>{detail.label}</span>
+              <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
+                {detail.value}
+              </strong>
+            </div>
+          ))}
+          {cannotAfford && canAct && (
+            <div className={styles.dealDecisionWarning}>
+              Нужно {formatMoney(totalRequired)}: {formatMoney(purchaseCost)} за сделку и {formatMoney(normalizedBid)} ставка.
+            </div>
+          )}
+        </div>
+
+        <div className={styles.auctionParticipants}>
+          {auction.participantPlayerIds.map(playerId => {
+            const player = players.find(item => item.playerId === playerId)
+            const status = playerId === auction.currentBidderPlayerId
+              ? 'Лидер'
+              : auction.passedPlayerIds.includes(playerId)
+                ? 'Пас'
+                : 'Участвует'
+
+            return (
+              <span key={playerId} className={playerId === auction.currentBidderPlayerId ? styles.auctionLeader : undefined}>
+                {player?.displayName ?? 'Игрок'} · {status}
+              </span>
+            )
+          })}
         </div>
       </div>
-
-      <div className={styles.dealDecisionDetails}>
-        {details.map(detail => (
-          <div className={styles.dealDecisionRow} key={detail.label}>
-            <span>{detail.label}</span>
-            <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
-              {detail.value}
-            </strong>
-          </div>
-        ))}
-        {cannotAfford && canAct && (
-          <div className={styles.dealDecisionWarning}>
-            Нужно {formatMoney(totalRequired)}: {formatMoney(purchaseCost)} за сделку и {formatMoney(normalizedBid)} ставка.
-          </div>
-        )}
-      </div>
-
-      <div className={styles.auctionParticipants}>
-        {auction.participantPlayerIds.map(playerId => {
-          const player = players.find(item => item.playerId === playerId)
-          const status = playerId === auction.currentBidderPlayerId
-            ? 'Лидер'
-            : auction.passedPlayerIds.includes(playerId)
-              ? 'Пас'
-              : 'Участвует'
-
-          return (
-            <span key={playerId} className={playerId === auction.currentBidderPlayerId ? styles.auctionLeader : undefined}>
-              {player?.displayName ?? 'Игрок'} · {status}
-            </span>
-          )
-        })}
-      </div>
-
-      <div className={styles.dealDecisionSpacer} />
 
       <div className={styles.dealDecisionActions}>
         {canAct ? (

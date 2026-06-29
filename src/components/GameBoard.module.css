@@ -144,15 +144,18 @@
 
 @media (max-width: 768px) {
   .container {
-    min-height: 520px;
-    border-radius: 20px;
+    min-height: 620px;
+    border-radius: 28px;
+    background: rgb(242, 242, 247);
     overflow: hidden;
   }
 
+  .background {
+    background: rgb(242, 242, 247);
+  }
+
   .tabs {
-    width: calc(100% - 32px);
-    min-height: 30px;
-    margin-top: 8px;
+    display: none;
   }
 
   .tab {
@@ -162,24 +165,37 @@
   }
 
   .wheelWrapper {
-    inset: 28px 0 74px;
+    inset: auto;
+    top: 116px;
+    left: 50%;
+    width: 620px;
+    height: 620px;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    transform: translateX(-50%);
   }
 
   .wheelSvg {
-    transform: scale(1.42);
+    transform: none;
     transform-origin: center center;
   }
 
   .rollBadge {
-    max-width: calc(100% - 48px);
-    transform: translate(-50%, 70px);
-    padding: 9px 12px;
-    font-size: 12px;
+    max-width: 272px;
+    transform: translate(-50%, 78px);
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 15px;
   }
 
   .diceDock {
-    gap: 6px;
-    margin-bottom: 14px;
+    position: absolute;
+    right: 0;
+    bottom: 44px;
+    left: 0;
+    gap: 10px;
+    margin-bottom: 0;
   }
 
   .diceTray {
@@ -187,28 +203,28 @@
   }
 
   .die {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
   }
 
   .pip {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
 
-  .pip1 { left: 8px; top: 8px; }
-  .pip3 { right: 8px; top: 8px; }
-  .pip7 { left: 8px; bottom: 8px; }
-  .pip9 { right: 8px; bottom: 8px; }
+  .pip1 { left: 10px; top: 10px; }
+  .pip3 { right: 10px; top: 10px; }
+  .pip7 { left: 10px; bottom: 10px; }
+  .pip9 { right: 10px; bottom: 10px; }
 
   .rollButton {
-    min-width: 120px;
-    min-height: 34px;
-    margin-bottom: 12px;
-    padding: 0 16px;
-    border-radius: 18px;
-    font-size: 12px;
+    min-width: 178px;
+    min-height: 52px;
+    margin-bottom: 0;
+    padding: 0 24px;
+    border-radius: 28px;
+    font-size: 18px;
   }
 }
 
@@ -330,17 +346,21 @@
 
 @media (max-width: 768px) {
   .rollButton {
-    min-width: 120px;
-    min-height: 34px;
-    margin-bottom: 12px;
-    padding: 0 16px;
-    border-radius: 18px;
-    font-size: 12px;
+    min-width: 178px;
+    min-height: 52px;
+    margin-bottom: 0;
+    padding: 0 24px;
+    border-radius: 28px;
+    font-size: 18px;
   }
 
   .diceDock {
-    gap: 6px;
-    margin-bottom: 14px;
+    position: absolute;
+    right: 0;
+    bottom: 44px;
+    left: 0;
+    gap: 10px;
+    margin-bottom: 0;
   }
 
   .diceTray {
@@ -348,18 +368,46 @@
   }
 
   .die {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
   }
 
   .pip {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
 
-  .pip1 { left: 8px; top: 8px; }
-  .pip3 { right: 8px; top: 8px; }
-  .pip7 { left: 8px; bottom: 8px; }
-  .pip9 { right: 8px; bottom: 8px; }
+  .pip1 { left: 10px; top: 10px; }
+  .pip3 { right: 10px; top: 10px; }
+  .pip7 { left: 10px; bottom: 10px; }
+  .pip9 { right: 10px; bottom: 10px; }
+}
+
+@media (max-width: 420px) {
+  .container {
+    min-height: 600px;
+  }
+
+  .wheelWrapper {
+    top: 112px;
+    width: 600px;
+    height: 600px;
+  }
+
+  .rollBadge {
+    max-width: 250px;
+    transform: translate(-50%, 72px);
+    font-size: 14px;
+  }
+
+  .diceDock {
+    bottom: 36px;
+  }
+
+  .rollButton {
+    min-width: 164px;
+    min-height: 48px;
+    font-size: 16px;
+  }
 }

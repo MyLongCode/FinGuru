@@ -604,25 +604,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: clamp(12px, 3vw, 24px);
   background: rgba(20, 20, 25, 0.42);
+  overflow-y: auto;
 }
 
 .actionModal {
   width: min(560px, 100%);
+  max-height: calc(100dvh - 48px);
   padding: 22px;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
   color: rgb(28, 28, 30);
+  overflow: auto;
 }
 
 .dealActionModal {
-  width: auto;
-  padding: 8px;
-  border-radius: 32px;
+  width: min(410px, 100%);
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 24px;
   background: transparent;
-  box-shadow: 2px 2px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
+  overflow: visible;
 }
 
 .actionEyebrow {
@@ -710,20 +718,31 @@
 }
 
 .eventCard {
-  width: 366px;
-  min-height: 603px;
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  width: min(366px, calc(100vw - 32px));
+  height: min(603px, calc(100dvh - 48px));
+  min-height: 0;
+  max-height: calc(100dvh - 48px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
   box-sizing: border-box;
-  padding: 20px 24px;
+  padding: 0;
   border-radius: 24px;
   color: #fff;
   font-family: 'Montserrat Alternates', sans-serif;
-  overflow-y: auto;
+  overflow: hidden;
   scrollbar-width: thin;
   box-shadow: 2px 2px 24px rgba(0, 0, 0, 0.08);
+}
+
+.eventCardMain {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 24px 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .eventCard_deal {
@@ -799,6 +818,7 @@
   font-size: 26px;
   font-weight: 700;
   line-height: 32px;
+  overflow-wrap: anywhere;
 }
 
 .eventCardBody p {
@@ -808,6 +828,7 @@
   font-weight: 400;
   line-height: 21px;
   white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .eventCardDetails {
@@ -852,14 +873,16 @@
   color: #ffd2d2 !important;
 }
 
-.eventCardSpacer {
-  flex: 1;
-}
-
 .eventCardActions {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 46dvh;
+  padding: 12px 24px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.08));
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
 }
 
 .eventCardClose,
@@ -876,7 +899,7 @@
 
 .eventCardClose,
 .eventSecondaryButton {
-  width: 318px;
+  width: 100%;
   min-height: 40px;
   align-self: center;
   background: rgba(0, 0, 0, 0.2);
@@ -1060,18 +1083,19 @@
 }
 
 .dealDecisionCard {
-  width: 366px;
-  min-height: 603px;
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  width: min(366px, calc(100vw - 32px));
+  height: min(603px, calc(100dvh - 48px));
+  min-height: 0;
+  max-height: calc(100dvh - 48px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
   box-sizing: border-box;
-  padding: 20px 24px;
+  padding: 0;
   border-radius: 24px;
   color: #fff;
   font-family: 'Montserrat Alternates', sans-serif;
-  overflow-y: auto;
+  overflow: hidden;
   scrollbar-width: thin;
 }
 
@@ -1085,6 +1109,16 @@
 
 .auctionCard {
   background: linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #5856d6;
+}
+
+.dealDecisionMain {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 24px 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .dealDecisionContent {
@@ -1111,6 +1145,7 @@
   font-size: 22px;
   font-weight: 700;
   line-height: 28px;
+  overflow-wrap: anywhere;
 }
 
 .dealDecisionDescription {
@@ -1120,6 +1155,8 @@
   font-size: 15px;
   font-weight: 400;
   line-height: 21px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .dealDecisionCard .dealDecisionDescription {
@@ -1261,7 +1298,7 @@
 
 .auctionBidInput {
   display: flex;
-  width: 318px;
+  width: 100%;
   min-height: 48px;
   align-items: center;
   justify-content: space-between;
@@ -1319,19 +1356,21 @@
   line-height: 17px;
 }
 
-.dealDecisionSpacer {
-  flex: 1;
-}
-
 .dealDecisionActions {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 46dvh;
+  padding: 12px 24px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.08));
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
 }
 
 .stockQuantityControl {
   display: flex;
-  width: 318px;
+  width: 100%;
   min-height: 48px;
   align-items: center;
   justify-content: space-between;
@@ -1400,7 +1439,7 @@
 }
 
 .dealDecisionButton {
-  width: 318px;
+  width: 100%;
   min-height: 40px;
   align-self: center;
   border: none;
@@ -1439,7 +1478,7 @@
 
 .dealSalePrice {
   display: flex;
-  width: 318px;
+  width: 100%;
   min-height: 40px;
   align-items: center;
   justify-content: space-between;
@@ -1478,7 +1517,7 @@
 }
 
 .dealTradeSelect {
-  width: 318px;
+  width: 100%;
   min-height: 40px;
   align-self: center;
   border: none;
@@ -1555,7 +1594,7 @@
 
   .eventCard {
     width: min(366px, calc(100vw - 28px));
-    min-height: min(603px, calc(100vh - 28px));
+    height: min(603px, calc(100dvh - 28px));
   }
 
   .eventCardClose,
@@ -1600,31 +1639,35 @@
   }
 
   .boardColumn {
-    height: min(620px, calc(100dvh - 126px));
-    min-height: 520px;
+    height: min(724px, calc(100dvh - 126px));
+    min-height: 620px;
     overflow: hidden;
     background: rgb(242, 242, 247);
+    border-radius: 28px;
   }
 
   .turnPanel {
-    top: 12px;
+    top: 16px;
     width: calc(100% - 32px);
     min-width: 0;
-    padding: 8px 12px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.78);
+    min-height: 76px;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.84);
     backdrop-filter: blur(14px);
   }
 
   .turnEyebrow,
   .turnHint {
-    font-size: 10px;
-    line-height: 13px;
+    font-size: 13px;
+    line-height: 17px;
   }
 
   .turnPanel strong {
-    font-size: 13px;
-    line-height: 17px;
+    font-size: 19px;
+    line-height: 24px;
   }
 
   .historyColumn {
@@ -1787,26 +1830,37 @@
 
 @media (max-width: 420px) {
   .actionOverlay {
-    padding: 0;
+    align-items: center;
+    padding: 8px;
   }
 
   .dealActionModal {
-    width: 100vw;
-    min-height: 100vh;
+    width: 100%;
+    min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 0;
-    padding: 8px 0;
+    border-radius: 24px;
+    padding: 0;
     box-shadow: none;
   }
 
   .dealDecisionCard,
   .eventCard {
-    width: 280px;
-    min-height: 520px;
-    max-height: calc(100vh - 16px);
-    padding: 16px;
+    width: calc(100vw - 32px);
+    max-width: 366px;
+    height: min(603px, calc(100dvh - 16px));
+    max-height: calc(100dvh - 16px);
+  }
+
+  .dealDecisionMain,
+  .eventCardMain {
+    padding: 18px 20px 12px;
+  }
+
+  .dealDecisionActions,
+  .eventCardActions {
+    padding: 10px 20px 18px;
   }
 
   .dealDecisionTitle,
