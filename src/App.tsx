@@ -26,7 +26,7 @@ function RoleDetailsPageRoute() {
   const { roleName } = useParams<{ roleName: string }>()
   const data = roleName ? roleData[roleName] : undefined
 
-  if (!data) return <p>Р РѕР»СЊ РЅРµ РЅР°Р№РґРµРЅР°</p>
+  if (!data) return <p>Роль не найдена</p>
 
   return (
     <RoleDetailsPage
@@ -46,7 +46,7 @@ function mapDreamsFromState(state: GameState, playerId: string): DreamItem[] {
 
     return {
       id: dream.id,
-      title: dream.title ?? dream.number ?? `РњРµС‡С‚Р° ${dream.id}`,
+      title: dream.title ?? dream.number ?? `Мечта ${dream.id}`,
       number: dream.number ?? String(dream.id),
       description: dream.description ?? '',
       price: dream.price ?? 0,
@@ -62,7 +62,7 @@ function mapDreamsFromState(state: GameState, playerId: string): DreamItem[] {
 function mapStandaloneDreams(dreams: GameState['dreams']): DreamItem[] {
   return dreams.map((dream) => ({
     id: dream.id,
-    title: dream.title ?? dream.number ?? `РњРµС‡С‚Р° ${dream.id}`,
+    title: dream.title ?? dream.number ?? `Мечта ${dream.id}`,
     number: dream.number ?? String(dream.id),
     description: dream.description ?? '',
     price: dream.price ?? 0,
@@ -133,7 +133,7 @@ function DreamPageRoute() {
           status,
           takenByPlayerId: takenBy ?? undefined,
           color: takenBy ? update.playerColors[takenBy] : undefined,
-          playerName: takenBy ? (update.playerNames[takenBy] ?? 'РРіСЂРѕРє') : undefined,
+          playerName: takenBy ? (update.playerNames[takenBy] ?? 'Игрок') : undefined,
         }
       }))
     })
@@ -157,7 +157,7 @@ function DreamPageRoute() {
     selectDream(sdk, roomId, sdkPlayerId, dreamId)
   }, [roomId, sdkPlayerId, myColor])
 
-  if (!data) return <p>Р РѕР»СЊ РЅРµ РЅР°Р№РґРµРЅР°</p>
+  if (!data) return <p>Роль не найдена</p>
 
   return (
     <DreamPage

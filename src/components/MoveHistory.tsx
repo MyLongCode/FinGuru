@@ -46,9 +46,7 @@ function DealCard({ card }: { card: DealCardData }) {
             <span className={styles.dealPriceValue}>{card.price}</span>
           </div>
         </div>
-        <span className={`${styles.dealArrow} ${expanded ? styles.dealArrowUp : ''}`}>
-          ▼
-        </span>
+        <span className={`${styles.dealArrow} ${expanded ? styles.dealArrowUp : ''}`}>⌄</span>
       </button>
       {expanded && (
         <p className={styles.dealDescription}>{card.description}</p>

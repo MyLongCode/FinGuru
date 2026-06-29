@@ -23,8 +23,12 @@
 .playerName {
   font-weight: 700;
   font-size: 20px;
+  line-height: 24px;
   color: rgb(255, 204, 0);
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sparkle {
@@ -41,7 +45,9 @@
 .playerMeta {
   display: flex;
   flex-direction: row;
-  gap: 0;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
 }
 
 .playerRole,
@@ -49,5 +55,17 @@
 .moveNumber {
   font-weight: 500;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.52);
+  line-height: 18px;
+  color: rgba(60, 60, 67, 0.6);
+}
+
+.playerRole,
+.moveNumber {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.separator {
+  color: rgba(60, 60, 67, 0.35);
 }

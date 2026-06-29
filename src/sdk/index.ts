@@ -187,15 +187,23 @@ export interface PlayerGameState {
   isOnBigCircle: boolean
   skipNextTurn: boolean
   skipTurnsRemaining: number
+  charityDiceTurnsRemaining: number
+  accruedSalary: number
   achievedDreams?: number[]
   achievedDreamsCount?: number
   assets?: FinGuruAsset[]
   liabilities?: FinGuruLiability[]
 }
 
+export interface FinGuruGameSettings {
+  diceCount: 1 | 2
+  salaryPayoutMode: 'automatic' | 'manual'
+}
+
 export interface FinGuruAsset {
   id: string
   title: string
+  cardId: string
   assetType: string
   cost: number
   cashFlow: number
@@ -218,6 +226,19 @@ export interface PendingDecision {
   options: string[]
   decisionOptions?: DecisionOption[]
   createdAt?: string
+}
+
+export interface FinGuruAuctionState {
+  auctionId: string
+  sellerPlayerId: string
+  dealCard: DecisionOption
+  startingBid: number
+  currentBid: number
+  currentBidderPlayerId?: string | null
+  participantPlayerIds: string[]
+  passedPlayerIds: string[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface DecisionOption {
@@ -262,25 +283,47 @@ export interface GameState {
   winner: string | null
   winners?: string[]
   finalResults?: any[]
+  settings: FinGuruGameSettings
   players: PlayerGameState[]
   dreams: DreamState[]
   pendingDecision?: PendingDecision | null
+  pendingAuction?: FinGuruAuctionState | null
   currentPlayerId: string
   turnCount: number
 }
 
 const DEFAULT_FIN_GURU_DREAMS: DreamState[] = [
-  { id: 1, title: '\u041a\u043e\u0440\u043e\u0431\u043a\u0430 \u043d\u0430 \u0441\u0442\u0430\u0434\u0438\u043e\u043d\u0435', number: '\u21161', description: '\u0410\u0431\u043e\u043d\u0435\u043c\u0435\u043d\u0442 \u0432 \u0447\u0430\u0441\u0442\u043d\u0443\u044e \u043b\u043e\u0436\u0443 \u043d\u0430 12 \u043f\u0435\u0440\u0441\u043e\u043d.', price: 200000, chosenByPlayerId: null },
-  { id: 2, title: '\u041f\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u043d\u0430 \u041c\u0430\u043b\u044c\u0434\u0438\u0432\u044b', number: '\u21162', description: '\u041d\u0435\u0434\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0442\u0434\u044b\u0445 \u0432 \u043b\u044e\u043a\u0441-\u043d\u043e\u043c\u0435\u0440\u0435.', price: 350000, chosenByPlayerId: null },
-  { id: 3, title: 'Tesla Model 3', number: '\u21163', description: 'Tesla \u0432 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u043e\u0439 \u043a\u043e\u043c\u043f\u043b\u0435\u043a\u0442\u0430\u0446\u0438\u0438.', price: 5500000, chosenByPlayerId: null },
-  { id: 4, title: '\u0420\u0435\u043c\u043e\u043d\u0442 \u0432 \u043a\u0432\u0430\u0440\u0442\u0438\u0440\u0435', number: '\u21164', description: '\u041f\u043e\u043b\u043d\u044b\u0439 \u0434\u0438\u0437\u0430\u0439\u043d\u0435\u0440\u0441\u043a\u0438\u0439 \u0440\u0435\u043c\u043e\u043d\u0442.', price: 1200000, chosenByPlayerId: null },
-  { id: 5, title: '\u0421\u043e\u0431\u0441\u0442\u0432\u0435\u043d\u043d\u044b\u0439 \u0431\u0438\u0437\u043d\u0435\u0441', number: '\u21165', description: '\u041e\u0442\u043a\u0440\u044b\u0442\u0438\u0435 \u043a\u043e\u0444\u0435\u0439\u043d\u0438 \u0432 \u0446\u0435\u043d\u0442\u0440\u0435 \u0433\u043e\u0440\u043e\u0434\u0430.', price: 3000000, chosenByPlayerId: null },
-  { id: 6, title: '\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435 \u0432 \u0413\u0430\u0440\u0432\u0430\u0440\u0434\u0435', number: '\u21166', description: '\u041f\u043e\u043b\u043d\u044b\u0439 \u043a\u0443\u0440\u0441 MBA.', price: 8000000, chosenByPlayerId: null },
-  { id: 7, title: '\u0414\u043e\u043c \u043d\u0430 \u043f\u043e\u0431\u0435\u0440\u0435\u0436\u044c\u0435', number: '\u21167', description: '\u0414\u0432\u0443\u0445\u044d\u0442\u0430\u0436\u043d\u044b\u0439 \u0434\u043e\u043c \u0441 \u0431\u0430\u0441\u0441\u0435\u0439\u043d\u043e\u043c.', price: 12000000, chosenByPlayerId: null },
+  { id: 1, title: '\u041a\u0443\u043f\u0438\u0442\u0435 \u043b\u0435\u0441', number: '\u21161', description: '\u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0435 \u0432\u044b\u0440\u0443\u0431\u043a\u0443 \u0432\u0435\u043a\u043e\u0432\u044b\u0445 \u0434\u0435\u0440\u0435\u0432\u044c\u0435\u0432. \u041f\u043e\u0436\u0435\u0440\u0442\u0432\u0443\u0439\u0442\u0435 1000 \u0430\u043a\u0440\u043e\u0432 \u043b\u0435\u0441\u0430 \u0438 \u0441\u043e\u0437\u0434\u0430\u0439\u0442\u0435 \u043f\u0440\u043e\u0433\u0443\u043b\u043e\u0447\u043d\u044b\u0435 \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u044b, \u0447\u0442\u043e\u0431\u044b \u0432\u0441\u0435 \u043c\u043e\u0433\u043b\u0438 \u043d\u0430\u0441\u043b\u0430\u0436\u0434\u0430\u0442\u044c\u0441\u044f \u043e\u0431\u0449\u0435\u043d\u0438\u0435\u043c \u0441 \u043f\u0440\u0438\u0440\u043e\u0434\u043e\u0439.', price: 250000, chosenByPlayerId: null },
+  { id: 3, title: '\u041b\u043e\u0436\u0430 \u043d\u0430 \u0441\u0442\u0430\u0434\u0438\u043e\u043d\u0435 \u043f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u043e\u0439 \u043a\u043e\u043c\u0430\u043d\u0434\u044b', number: '\u21163', description: '\u0410\u0431\u043e\u043d\u0435\u043c\u0435\u043d\u0442 \u0432 \u0447\u0430\u0441\u0442\u043d\u0443\u044e \u043b\u043e\u0436\u0443 \u043d\u0430 \u0441\u0442\u0430\u0434\u0438\u043e\u043d\u0435 \u043d\u0430 12 \u043f\u0435\u0440\u0441\u043e\u043d \u0441 \u0435\u0434\u043e\u0439 \u0438 \u043d\u0430\u043f\u0438\u0442\u043a\u0430\u043c\u0438 \u0432\u0430\u0448\u0435\u0439 \u043b\u044e\u0431\u0438\u043c\u043e\u0439 \u043a\u043e\u043c\u0430\u043d\u0434\u044b.', price: 200000, chosenByPlayerId: null },
+  { id: 5, title: '\u0414\u0440\u0435\u0432\u043d\u0438\u0435 \u0433\u043e\u0440\u043e\u0434\u0430 \u0410\u0437\u0438\u0438', number: '\u21165', description: '\u0427\u0430\u0441\u0442\u043d\u044b\u0439 \u0441\u0430\u043c\u043e\u043b\u0451\u0442 \u0434\u043e\u0441\u0442\u0430\u0432\u0438\u0442 \u0432\u0430\u0441 \u0438 \u0434\u0440\u0443\u0437\u0435\u0439 \u0432 \u0441\u0430\u043c\u044b\u0435 \u043e\u0442\u0434\u0430\u043b\u0451\u043d\u043d\u044b\u0435 \u0443\u0433\u043e\u043b\u043a\u0438 \u0410\u0437\u0438\u0438, \u043a\u0443\u0434\u0430 \u0435\u0449\u0451 \u043d\u0435 \u0441\u0442\u0443\u043f\u0430\u043b\u0430 \u043d\u043e\u0433\u0430 \u0442\u0443\u0440\u0438\u0441\u0442\u0430.', price: 150000, chosenByPlayerId: null },
+  { id: 8, title: '\u0424\u043e\u043d\u0434\u043e\u0432\u0430\u044f \u0431\u0438\u0440\u0436\u0430 \u0434\u043b\u044f \u0434\u0435\u0442\u0435\u0439', number: '\u21168', description: '\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0448\u043a\u043e\u043b\u0443 \u0431\u0438\u0437\u043d\u0435\u0441\u0430 \u0438 \u0438\u043d\u0432\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0434\u043b\u044f \u043f\u043e\u0434\u0440\u0430\u0441\u0442\u0430\u044e\u0449\u0438\u0445 \u043a\u0430\u043f\u0438\u0442\u0430\u043b\u0438\u0441\u0442\u043e\u0432, \u0447\u0442\u043e\u0431\u044b \u043e\u0431\u0443\u0447\u0438\u0442\u044c \u0438\u0445 \u043e\u0441\u043d\u043e\u0432\u0430\u043c \u0431\u0438\u0437\u043d\u0435\u0441\u0430. \u0412 \u0448\u043a\u043e\u043b\u0435 \u0434\u043e\u043b\u0436\u043d\u044b \u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u0434\u0435\u0442\u0438-\u0443\u0447\u0435\u043d\u0438\u043a\u0438.', price: 125000, chosenByPlayerId: null },
+  { id: 11, title: '\u0423\u0447\u0430\u0441\u0442\u0438\u0435 \u0432 \u0440\u0435\u0433\u0430\u0442\u0435', number: '\u211611', description: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435\u0441\u044c \u0432 \u041f\u0435\u0440\u0442 (\u0410\u0432\u0441\u0442\u0440\u0430\u043b\u0438\u044f). \u041f\u0440\u0438\u043c\u0438\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u0438\u0435 \u0432 \u043e\u0434\u043d\u043e\u0439 \u0438\u0437 \u0441\u0430\u043c\u044b\u0445 \u0431\u044b\u0441\u0442\u0440\u043e\u0445\u043e\u0434\u043d\u044b\u0445 \u0440\u0435\u0433\u0430\u0442 \u0432 \u043c\u0438\u0440\u0435.', price: 150000, chosenByPlayerId: null },
+  { id: 14, title: '\u041a\u0438\u043d\u043e\u0444\u0435\u0441\u0442\u0438\u0432\u0430\u043b\u044c \u0432 \u041a\u0430\u043d\u043d\u0430\u0445', number: '\u211614', description: '\u0412\u0435\u0447\u0435\u0440\u0438\u043d\u043a\u0430 \u0441\u043e \u0437\u0432\u0451\u0437\u0434\u0430\u043c\u0438! \u0422\u0443\u0440 \u043f\u043e \u0424\u0440\u0430\u043d\u0446\u0438\u0438 \u043f\u043b\u044e\u0441 \u043d\u0435\u0434\u0435\u043b\u044f \u043e\u0431\u0449\u0435\u043d\u0438\u044f \u0441\u043e \u0437\u043d\u0430\u043c\u0435\u043d\u0438\u0442\u043e\u0441\u0442\u044f\u043c\u0438 \u0432 \u041a\u0430\u043d\u043d\u0430\u0445. \u0412\u0430\u043c \u0434\u0430\u0436\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u043b\u0438 \u0433\u043b\u0430\u0432\u043d\u0443\u044e \u0440\u043e\u043b\u044c.', price: 125000, chosenByPlayerId: null },
+  { id: 16, title: '\u041a\u0440\u0443\u0438\u0437 \u043f\u043e \u0421\u0440\u0435\u0434\u0438\u0437\u0435\u043c\u043d\u043e\u043c\u043e\u0440\u044c\u044e \u043d\u0430 \u0447\u0430\u0441\u0442\u043d\u043e\u0439 \u044f\u0445\u0442\u0435', number: '\u211616', description: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435\u0441\u044c \u043d\u0430 \u043c\u0435\u0441\u044f\u0446 \u0432 \u043a\u0440\u0443\u0438\u0437 \u0441 \u0434\u0440\u0443\u0437\u044c\u044f\u043c\u0438, \u043f\u043e\u0441\u0435\u0442\u0438\u0442\u0435 \u0418\u0442\u0430\u043b\u0438\u044e, \u0424\u0440\u0430\u043d\u0446\u0438\u044e \u0438 \u0413\u0440\u0435\u0446\u0438\u044e.', price: 100000, chosenByPlayerId: null },
+  { id: 17, title: '\u041a\u0430\u043f\u0438\u0442\u0430\u043b\u0438\u0441\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u043a\u043e\u043d\u043a\u0443\u0440\u0441 \u043c\u0438\u0440\u0430', number: '\u211617', description: '\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u0448\u043a\u043e\u043b\u044b \u043f\u0440\u0435\u0434\u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0442\u0435\u043b\u044c\u0441\u0442\u0432\u0430 \u0432 \u0441\u0442\u0440\u0430\u043d\u0430\u0445 \u0442\u0440\u0435\u0442\u044c\u0435\u0433\u043e \u043c\u0438\u0440\u0430. \u041f\u0440\u0435\u043f\u043e\u0434\u0430\u0432\u0430\u0442\u0435\u043b\u0438 \u2014 \u0441\u043e\u0441\u0442\u043e\u044f\u0432\u0448\u0438\u0435\u0441\u044f \u0431\u0438\u0437\u043d\u0435\u0441\u043c\u0435\u043d\u044b, \u0433\u043e\u0442\u043e\u0432\u044b\u0435 \u043f\u0435\u0440\u0435\u0434\u0430\u0442\u044c \u0437\u043d\u0430\u043d\u0438\u044f \u0443\u0447\u0435\u043d\u0438\u043a\u0430\u043c.', price: 20000, chosenByPlayerId: null },
+  { id: 19, title: '\u041e\u0441\u0442\u0440\u043e\u0432 \u043c\u0435\u0447\u0442\u044b \u0432 \u044e\u0436\u043d\u043e\u043c \u043c\u043e\u0440\u0435', number: '\u211619', description: '\u0414\u0432\u0443\u0445\u043c\u0435\u0441\u044f\u0447\u043d\u043e\u0435 \u043a\u0443\u043f\u0430\u043d\u0438\u0435 \u0432 \u0440\u043e\u0441\u043a\u043e\u0448\u0438. \u0420\u0430\u0441\u0441\u043b\u0430\u0431\u043b\u044f\u044e\u0449\u0438\u0435 \u0442\u0451\u043f\u043b\u044b\u0435 \u0432\u043e\u0434\u044b, \u0431\u0435\u0437\u043b\u044e\u0434\u043d\u044b\u0435 \u043f\u043b\u044f\u0436\u0438 \u0438 \u0440\u043e\u043c\u0430\u043d\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u043d\u043e\u0447\u0438.', price: 100000, chosenByPlayerId: null },
+  { id: 21, title: '\u0414\u0435\u0442\u0441\u043a\u0430\u044f \u0431\u0438\u0431\u043b\u0438\u043e\u0442\u0435\u043a\u0430', number: '\u211621', description: '\u041f\u0440\u0438\u0441\u0442\u0440\u043e\u0439\u0442\u0435 \u043a \u0433\u043e\u0440\u043e\u0434\u0441\u043a\u043e\u0439 \u0431\u0438\u0431\u043b\u0438\u043e\u0442\u0435\u043a\u0435 \u043d\u043e\u0432\u043e\u0435 \u043a\u0440\u044b\u043b\u043e, \u0433\u0434\u0435 \u0431\u0443\u0434\u0443\u0442 \u0437\u0430\u043d\u0438\u043c\u0430\u0442\u044c\u0441\u044f \u044e\u043d\u044b\u0435 \u043f\u0438\u0441\u0430\u0442\u0435\u043b\u0438 \u0438 \u0445\u0443\u0434\u043e\u0436\u043d\u0438\u043a\u0438.', price: 175000, chosenByPlayerId: null },
+  { id: 23, title: '\u0413\u043e\u043b\u044c\u0444 \u0432\u043e\u043a\u0440\u0443\u0433 \u0441\u0432\u0435\u0442\u0430', number: '\u211623', description: '\u0411\u0435\u0440\u0438\u0442\u0435 \u0442\u0440\u043e\u0438\u0445 \u0434\u0440\u0443\u0437\u0435\u0439 \u0438 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435\u0441\u044c \u0432 \u043a\u0440\u0443\u0433\u043e\u0441\u0432\u0435\u0442\u043d\u043e\u0435 \u0442\u0443\u0440\u043d\u0435 \u043f\u043e 50 \u043b\u0443\u0447\u0448\u0438\u043c \u043f\u043e\u043b\u044f\u043c \u0434\u043b\u044f \u0433\u043e\u043b\u044c\u0444\u0430. \u041f\u0435\u0440\u0432\u044b\u0439 \u043a\u043b\u0430\u0441\u0441, \u043f\u044f\u0442\u0438\u0437\u0432\u0451\u0437\u0434\u043e\u0447\u043d\u044b\u0439 \u043e\u0442\u0435\u043b\u044c.', price: 150000, chosenByPlayerId: null },
+  { id: 25, title: '\u0412\u043e\u0439\u0434\u0438\u0442\u0435 \u0432 \u043a\u0440\u0443\u0433 \u00ab\u0440\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u043e\u0439\u00bb \u043f\u0443\u0431\u043b\u0438\u043a\u0438', number: '\u211625', description: '\u0410\u0440\u0435\u043d\u0434\u0443\u0439\u0442\u0435 \u043d\u0430 \u0433\u043e\u0434 \u0447\u0430\u0441\u0442\u043d\u044b\u0439 \u0440\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0441\u0430\u043c\u043e\u043b\u0451\u0442, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u0432 \u043b\u044e\u0431\u043e\u0439 \u043c\u043e\u043c\u0435\u043d\u0442 \u0443\u043c\u0447\u0438\u0442 \u0432\u0430\u0441 \u043a\u0443\u0434\u0430 \u0434\u0443\u0448\u0430 \u043f\u043e\u0436\u0435\u043b\u0430\u0435\u0442.', price: 250000, chosenByPlayerId: null },
+  { id: 27, title: '\u0421\u043f\u0430\u0441\u0435\u043d\u0438\u0435 \u043c\u043e\u0440\u0441\u043a\u0438\u0445 \u0436\u0438\u0432\u043e\u0442\u043d\u044b\u0445', number: '\u211627', description: '\u0421\u0442\u0430\u043d\u044c\u0442\u0435 \u0441\u043f\u043e\u043d\u0441\u043e\u0440\u043e\u043c \u0438 \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a\u043e\u043c \u043c\u0435\u0441\u044f\u0447\u043d\u043e\u0439 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0439 \u044d\u043a\u0441\u043f\u0435\u0434\u0438\u0446\u0438\u0438 \u043f\u043e \u0441\u043f\u0430\u0441\u0435\u043d\u0438\u044e \u0438\u0441\u0447\u0435\u0437\u0430\u044e\u0449\u0438\u0445 \u0432\u0438\u0434\u043e\u0432 \u043c\u043e\u0440\u0441\u043a\u0438\u0445 \u0436\u0438\u0432\u043e\u0442\u043d\u044b\u0445.', price: 125000, chosenByPlayerId: null },
+  { id: 29, title: '7 \u0447\u0443\u0434\u0435\u0441 \u0441\u0432\u0435\u0442\u0430', number: '\u211629', description: '\u041f\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u043d\u0430 \u0441\u0430\u043c\u043e\u043b\u0451\u0442\u0435, \u043f\u0430\u0440\u043e\u0445\u043e\u0434\u0435, \u0432\u0435\u043b\u043e\u0441\u0438\u043f\u0435\u0434\u0435, \u0432\u0435\u0440\u0431\u043b\u044e\u0434\u0435, \u043a\u0430\u043d\u043e\u044d \u0438 \u043b\u0438\u043c\u0443\u0437\u0438\u043d\u0435, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c 7 \u0447\u0443\u0434\u0435\u0441 \u0441\u0432\u0435\u0442\u0430. \u0412\u044b\u0441\u0448\u0438\u0439 \u043a\u043b\u0430\u0441\u0441!', price: 200000, chosenByPlayerId: null },
+  { id: 31, title: '\u041d\u0430\u0443\u0447\u043d\u044b\u0439 \u0446\u0435\u043d\u0442\u0440 \u0440\u0430\u043a\u0430 \u0438 \u0421\u041f\u0418\u0414\u0430', number: '\u211631', description: '\u0412\u0430\u0448\u0438 \u0434\u0435\u043d\u044c\u0433\u0438 \u043f\u043e\u0437\u0432\u043e\u043b\u044f\u0442 \u0441\u043e\u0431\u0440\u0430\u0442\u044c \u0432 \u043e\u0434\u043d\u043e\u043c \u0446\u0435\u043d\u0442\u0440\u0435 \u0432\u0435\u0434\u0443\u0449\u0438\u0445 \u0438\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439 \u0438 \u0432\u0440\u0430\u0447\u0435\u0439, \u043f\u043e\u0441\u0432\u044f\u0442\u0438\u0432\u0448\u0438\u0445 \u0441\u0435\u0431\u044f \u0438\u0441\u043a\u043e\u0440\u0435\u043d\u0435\u043d\u0438\u044e \u044d\u0442\u0438\u0445 \u0434\u0432\u0443\u0445 \u0431\u043e\u043b\u0435\u0437\u043d\u0435\u0439.', price: 225000, chosenByPlayerId: null },
+  { id: 32, title: '\u0423\u0436\u0438\u043d \u0441 \u043f\u0440\u0435\u0437\u0438\u0434\u0435\u043d\u0442\u043e\u043c', number: '\u211632', description: '\u0417\u0430\u043a\u0430\u0436\u0438\u0442\u0435 \u0441\u0442\u043e\u043b\u0438\u043a \u0434\u043b\u044f \u0434\u0435\u0441\u044f\u0442\u0438 \u0434\u0440\u0443\u0437\u0435\u0439 \u043d\u0430 \u0442\u043e\u0440\u0436\u0435\u0441\u0442\u0432\u0435\u043d\u043d\u043e\u043c \u0443\u0436\u0438\u043d\u0435 \u0441 \u043f\u0440\u0435\u0437\u0438\u0434\u0435\u043d\u0442\u043e\u043c \u0438 \u0432\u044b\u0441\u043e\u043a\u043e\u043f\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d\u043d\u044b\u043c\u0438 \u043e\u0441\u043e\u0431\u0430\u043c\u0438 \u0441\u043e \u0432\u0441\u0435\u0433\u043e \u043c\u0438\u0440\u0430.', price: 100000, chosenByPlayerId: null },
+  { id: 35, title: '\u041f\u0440\u044b\u0436\u043a\u0438 \u043d\u0430 \u043b\u044b\u0436\u0430\u0445 \u0441 \u0432\u0435\u0440\u0442\u043e\u043b\u0451\u0442\u0430', number: '\u211635', description: '\u0426\u0435\u043b\u044b\u0439 \u0441\u0435\u0437\u043e\u043d \u043f\u0440\u044b\u0436\u043a\u043e\u0432 \u043d\u0430 \u043b\u044b\u0436\u0430\u0445 \u0432 \u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0441\u043a\u0438\u0445 \u0410\u043b\u044c\u043f\u0430\u0445, \u0438\u0433\u0440\u0430 \u0432 \u0437\u043d\u0430\u043c\u0435\u043d\u0438\u0442\u044b\u0445 \u043a\u0430\u0437\u0438\u043d\u043e \u043d\u043e\u0447\u044c\u044e, \u0430\u043f\u0430\u0440\u0442\u0430\u043c\u0435\u043d\u0442\u044b \u0432 \u0441\u0440\u0435\u0434\u043d\u0435\u0432\u0435\u043a\u043e\u0432\u043e\u043c \u0437\u0430\u043c\u043a\u0435.', price: 150000, chosenByPlayerId: null },
+  { id: 37, title: '\u0414\u0430\u0440 \u0446\u0435\u0440\u043a\u0432\u0438', number: '\u211637', description: '\u0412\u0430\u0448\u0430 \u0440\u0435\u043b\u0438\u0433\u0438\u043e\u0437\u043d\u0430\u044f \u043e\u0431\u0449\u0438\u043d\u0430 \u0441\u0442\u0440\u0435\u043c\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0440\u0430\u0437\u0440\u0430\u0441\u0442\u0430\u0435\u0442\u0441\u044f. \u0421\u0440\u043e\u0447\u043d\u043e \u043d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u044b \u043d\u043e\u0432\u044b\u0435 \u0445\u0440\u0430\u043c\u044b. \u0412\u044b \u0436\u0435\u0440\u0442\u0432\u0443\u0435\u0442\u0435\u2026', price: 175000, chosenByPlayerId: null },
+  { id: 39, title: '\u0411\u0430\u043b\u043b\u043e\u0442\u0438\u0440\u0443\u0439\u0442\u0435\u0441\u044c \u0432 \u043c\u044d\u0440\u044b', number: '\u211639', description: '\u041b\u044e\u0434\u0438 \u043f\u043e\u0432\u0435\u0440\u0438\u043b\u0438 \u0432 \u0432\u0430\u0448\u0443 \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0443\u044e \u043c\u0443\u0434\u0440\u043e\u0441\u0442\u044c \u0438 \u0443\u0433\u043e\u0432\u043e\u0440\u0438\u043b\u0438 \u0431\u0430\u043b\u043b\u043e\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c\u0441\u044f \u043d\u0430 \u043f\u043e\u0441\u0442 \u043c\u044d\u0440\u0430. \u0412\u044b \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u043b\u0438\u0441\u044c \u0438 \u0432\u044b\u0438\u0433\u0440\u0430\u043b\u0438 \u0432\u044b\u0431\u043e\u0440\u044b.', price: 125000, chosenByPlayerId: null },
+  { id: 42, title: '\u0427\u0430\u0441\u0442\u043d\u0430\u044f \u0440\u044b\u0431\u0430\u043b\u043a\u0430', number: '\u211642', description: '\u041b\u043e\u0432\u0438\u0442\u0435 \u0440\u044b\u0431\u0443 \u043f\u0440\u044f\u043c\u043e \u0443 \u0433\u043e\u0440\u043d\u043e\u0433\u043e \u043e\u0437\u0435\u0440\u0430. (\u0421\u0443\u043c\u043c\u0430 \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044f \u0447\u0430\u0441\u0442\u0438\u0447\u043d\u043e \u043d\u0430 \u0441\u0442\u044b\u043a\u0435 \u043a\u0430\u0434\u0440\u043e\u0432 \u2014 \u0443\u0442\u043e\u0447\u043d\u0438\u0442\u044c.)', price: 25000, chosenByPlayerId: null },
+  { id: 43, title: '\u041f\u0430\u0440\u043a / \u0441\u043a\u043b\u0430\u0434', number: '\u211643', description: '\u0421\u043d\u0435\u0441\u0438\u0442\u0435 \u0437\u0430\u0431\u043e\u0440 \u0432\u043e\u043a\u0440\u0443\u0433 \u0441\u0442\u0430\u0440\u043e\u0433\u043e \u0441\u043a\u043b\u0430\u0434\u0430 \u0438 \u043f\u043e\u0441\u0442\u0440\u043e\u0439\u0442\u0435 \u043d\u043e\u0432\u044b\u0439 \u043f\u0430\u0440\u043a \u043e\u0442\u0434\u044b\u0445\u0430, \u0447\u0442\u043e\u0431\u044b \u043e\u0431\u0435\u0441\u043f\u0435\u0447\u0438\u0442\u044c \u0447\u0438\u0441\u0442\u044b\u0439 \u0432\u043e\u0437\u0434\u0443\u0445 \u0438 \u043f\u043e\u0440\u044f\u0434\u043e\u043a \u0432 \u043f\u0430\u0440\u043a\u0435.', price: 225000, chosenByPlayerId: null },
+  { id: 45, title: '\u041c\u0438\u043d\u0438-\u0444\u0435\u0440\u043c\u0430 \u0432 \u0433\u043e\u0440\u043e\u0434\u0435', number: '\u211645', description: '\u041f\u043e\u0441\u0442\u0440\u043e\u0439\u0442\u0435 \u043d\u0430\u0441\u0442\u043e\u044f\u0449\u0435\u0435 \u044d\u043a\u043e\u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438 \u0447\u0438\u0441\u0442\u043e\u0435 \u0445\u043e\u0437\u044f\u0439\u0441\u0442\u0432\u043e, \u0447\u0442\u043e\u0431\u044b \u0443\u0447\u0438\u0442\u044c \u0434\u0435\u0442\u0435\u0439 \u043e \u0436\u0438\u0432\u043e\u0442\u043d\u044b\u0445 \u0438 \u0440\u0430\u0441\u0442\u0435\u043d\u0438\u044f\u0445.', price: 150000, chosenByPlayerId: null },
+  { id: 47, title: '\u0424\u043e\u0442\u043e\u043e\u0445\u043e\u0442\u0430 \u0432 \u0410\u0444\u0440\u0438\u043a\u0435', number: '\u211647', description: '\u0412\u043e\u0437\u044c\u043c\u0438\u0442\u0435 \u0448\u0435\u0441\u0442\u0435\u0440\u044b\u0445 \u0434\u0440\u0443\u0437\u0435\u0439 \u043d\u0430 \u0441\u0430\u0444\u0430\u0440\u0438 \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u044d\u043a\u0437\u043e\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0436\u0438\u0432\u043e\u0442\u043d\u044b\u0445. \u041f\u044f\u0442\u0438\u0437\u0432\u0451\u0437\u0434\u043e\u0447\u043d\u044b\u0439 \u043a\u043e\u043c\u0444\u043e\u0440\u0442 \u0432 \u043f\u0430\u043b\u0430\u0442\u043a\u0435.', price: 100000, chosenByPlayerId: null },
 ]
 
 function getDefaultFinGuruDreams(): DreamState[] {
   return DEFAULT_FIN_GURU_DREAMS.map(dream => ({ ...dream }))
+}
+
+function isLegacyFinGuruDreamCatalog(dreams: DreamState[]): boolean {
+  return dreams.length < DEFAULT_FIN_GURU_DREAMS.length || dreams.some(dream => dream.title === 'Tesla Model 3')
 }
 
 export async function getFinGuruConfig(): Promise<{ dreams: DreamState[] }> {
@@ -297,7 +340,7 @@ export async function getFinGuruConfig(): Promise<{ dreams: DreamState[] }> {
       chosenByPlayerId: null,
     }))
 
-    return { dreams: dreams.length > 0 ? dreams : getDefaultFinGuruDreams() }
+    return { dreams: dreams.length > 0 && !isLegacyFinGuruDreamCatalog(dreams) ? dreams : getDefaultFinGuruDreams() }
   } catch {
     return { dreams: getDefaultFinGuruDreams() }
   }
@@ -318,11 +361,14 @@ function normalizePlayerGameState(player: any): PlayerGameState {
     isOnBigCircle: player.isOnBigCircle ?? player.IsOnBigCircle ?? false,
     skipNextTurn: player.skipNextTurn ?? player.SkipNextTurn ?? false,
     skipTurnsRemaining: player.skipTurnsRemaining ?? player.SkipTurnsRemaining ?? 0,
+    charityDiceTurnsRemaining: player.charityDiceTurnsRemaining ?? player.CharityDiceTurnsRemaining ?? 0,
+    accruedSalary: player.accruedSalary ?? player.AccruedSalary ?? 0,
     achievedDreams: player.achievedDreams ?? player.AchievedDreams,
     achievedDreamsCount: player.achievedDreamsCount ?? player.AchievedDreamsCount,
     assets: (player.assets ?? player.Assets ?? []).map((asset: any) => ({
       id: asset.id ?? asset.Id ?? '',
       title: asset.title ?? asset.Title ?? '',
+      cardId: asset.cardId ?? asset.CardId ?? '',
       assetType: asset.assetType ?? asset.AssetType ?? '',
       cost: asset.cost ?? asset.Cost ?? 0,
       cashFlow: asset.cashFlow ?? asset.CashFlow ?? 0,
@@ -374,12 +420,68 @@ function normalizePendingDecision(pending: any): PendingDecision | null {
     createdAt: pending.createdAt ?? pending.CreatedAt,
   }
 }
+
+function normalizeDecisionOption(option: any): DecisionOption {
+  return {
+    option: option.option ?? option.Option ?? '',
+    action: option.action ?? option.Action ?? '',
+    cardId: option.cardId ?? option.CardId ?? '',
+    title: option.title ?? option.Title ?? '',
+    description: option.description ?? option.Description ?? '',
+    cardType: option.cardType ?? option.CardType ?? '',
+    dealType: option.dealType ?? option.DealType ?? '',
+    ticker: option.ticker ?? option.Ticker ?? '',
+    targetPlayerId: option.targetPlayerId ?? option.TargetPlayerId ?? '',
+    offeredByPlayerId: option.offeredByPlayerId ?? option.OfferedByPlayerId ?? '',
+    cost: option.cost ?? option.Cost ?? 0,
+    cashFlow: option.cashFlow ?? option.CashFlow ?? 0,
+    assetValue: option.assetValue ?? option.AssetValue ?? 0,
+    liabilityValue: option.liabilityValue ?? option.LiabilityValue ?? 0,
+    offerPrice: option.offerPrice ?? option.OfferPrice ?? 0,
+    cashChange: option.cashChange ?? option.CashChange ?? 0,
+    incomeChange: option.incomeChange ?? option.IncomeChange ?? 0,
+    expensesChange: option.expensesChange ?? option.ExpensesChange ?? 0,
+    roi: option.roi ?? option.Roi ?? '',
+    saleRange: option.saleRange ?? option.SaleRange ?? '',
+    logic: option.logic ?? option.Logic ?? '',
+    skipNextTurn: option.skipNextTurn ?? option.SkipNextTurn ?? false,
+  }
+}
+
+function normalizePendingAuction(auction: any): FinGuruAuctionState | null {
+  if (!auction) return null
+
+  return {
+    auctionId: auction.auctionId ?? auction.AuctionId ?? '',
+    sellerPlayerId: auction.sellerPlayerId ?? auction.SellerPlayerId ?? '',
+    dealCard: normalizeDecisionOption(auction.dealCard ?? auction.DealCard ?? {}),
+    startingBid: auction.startingBid ?? auction.StartingBid ?? 0,
+    currentBid: auction.currentBid ?? auction.CurrentBid ?? 0,
+    currentBidderPlayerId: auction.currentBidderPlayerId ?? auction.CurrentBidderPlayerId ?? null,
+    participantPlayerIds: auction.participantPlayerIds ?? auction.ParticipantPlayerIds ?? [],
+    passedPlayerIds: auction.passedPlayerIds ?? auction.PassedPlayerIds ?? [],
+    createdAt: auction.createdAt ?? auction.CreatedAt,
+    updatedAt: auction.updatedAt ?? auction.UpdatedAt,
+  }
+}
+
+function normalizeGameSettings(settings: any): FinGuruGameSettings {
+  const diceCount = Number(settings?.diceCount ?? settings?.DiceCount ?? 2)
+  const salaryPayoutMode = settings?.salaryPayoutMode ?? settings?.SalaryPayoutMode
+
+  return {
+    diceCount: diceCount === 1 ? 1 : 2,
+    salaryPayoutMode: salaryPayoutMode === 'manual' ? 'manual' : 'automatic',
+  }
+}
+
 function normalizeGameState(data: any): GameState | null {
   if (!data) return null
 
   const players = data.players ?? data.Players ?? []
   const dreams = data.dreams ?? data.Dreams ?? []
   const pending = data.pendingDecision ?? data.PendingDecision ?? null
+  const pendingAuction = data.pendingAuction ?? data.PendingAuction ?? null
 
   return {
     roomId: data.roomId ?? data.RoomId ?? '',
@@ -389,6 +491,7 @@ function normalizeGameState(data: any): GameState | null {
     winner: data.winner ?? data.Winner ?? null,
     winners: data.winners ?? data.Winners,
     finalResults: data.finalResults ?? data.FinalResults,
+    settings: normalizeGameSettings(data.settings ?? data.Settings),
     players: players.map(normalizePlayerGameState),
     dreams: dreams.map((dream: any) => ({
       id: dream.id ?? dream.Id,
@@ -399,6 +502,7 @@ function normalizeGameState(data: any): GameState | null {
       chosenByPlayerId: dream.chosenByPlayerId ?? dream.ChosenByPlayerId ?? null,
     })),
     pendingDecision: normalizePendingDecision(pending),
+    pendingAuction: normalizePendingAuction(pendingAuction),
     currentPlayerId: data.currentPlayerId ?? data.CurrentPlayerId ?? '',
     turnCount: data.turnCount ?? data.TurnCount ?? 0,
   }
@@ -449,6 +553,7 @@ export interface DiceRollResult {
   phase?: string
   winners?: string[]
   finalResults?: any[]
+  settings?: FinGuruGameSettings
   players: PlayerGameState[]
 }
 
@@ -476,6 +581,7 @@ function normalizeDiceRoll(data: any): DiceRollResult {
     phase: data.phase ?? data.Phase,
     winners: data.winners ?? data.Winners,
     finalResults: data.finalResults ?? data.FinalResults,
+    settings: normalizeGameSettings(data.settings ?? data.Settings),
     players: (data.players ?? data.Players ?? []).map(normalizePlayerGameState),
   }
 }
@@ -634,8 +740,10 @@ export function resolveCellAction(
   playerId: string,
   actionName: string,
   option?: string | null,
+  quantity?: number,
+  offerPrice?: number,
 ): void {
-  sdk.sendAction('finguru.resolveCellAction', { roomId, playerId, actionName, option });
+  sdk.sendAction('finguru.resolveCellAction', { roomId, playerId, actionName, option, quantity, offerPrice });
 }
 
 export function sellAsset(
@@ -654,6 +762,47 @@ export function payLiability(
   liabilityId: string,
 ): void {
   sdk.sendAction('finguru.payLiability', { roomId, playerId, liabilityId })
+}
+
+export function takeCredit(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+): void {
+  sdk.sendAction('finguru.takeCredit', { roomId, playerId })
+}
+
+export function claimSalary(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+): void {
+  sdk.sendAction('finguru.claimSalary', { roomId, playerId })
+}
+
+export function placeAuctionBid(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+  bid: number,
+): void {
+  sdk.sendAction('finguru.placeAuctionBid', { roomId, playerId, bid })
+}
+
+export function passAuction(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+): void {
+  sdk.sendAction('finguru.passAuction', { roomId, playerId })
+}
+
+export function completeAuction(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+): void {
+  sdk.sendAction('finguru.completeAuction', { roomId, playerId })
 }
 
 export function subscribeCellResolved(

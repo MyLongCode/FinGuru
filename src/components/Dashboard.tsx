@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+﻿import { useState, type ReactNode } from 'react'
 import styles from './Dashboard.module.css'
 import ProgressBar from './ProgressBar'
 import DashboardHeader from './DashboardHeader'
@@ -44,9 +44,13 @@ export interface DashboardProps {
   liabilities?: FinGuruLiability[]
   cash?: number
   disabled?: boolean
+  assetsOnly?: boolean
+  accruedSalary?: number
+  salaryPayoutMode?: 'automatic' | 'manual'
   icon?: string
-  onSellAsset?: (assetId: string) => void
   onPayLiability?: (liabilityId: string) => void
+  onTakeCredit?: () => void
+  onClaimSalary?: () => void
 }
 
 function MoneyCard({
@@ -115,6 +119,8 @@ function getTypeLabel(type: string) {
       return 'Ипотека'
     case 'smallLoan':
       return 'Мелкие кредиты'
+    case 'bankLoan':
+      return 'Кредиты'
     default:
       return 'Прочее'
   }
@@ -122,12 +128,8 @@ function getTypeLabel(type: string) {
 
 function AssetsTable({
   assets,
-  disabled,
-  onSellAsset,
 }: {
   assets: FinGuruAsset[]
-  disabled: boolean
-  onSellAsset?: (assetId: string) => void
 }) {
   if (assets.length === 0) {
     return <p className={styles.emptyText}>Активов пока нет</p>
@@ -153,29 +155,14 @@ function AssetsTable({
               <span className={styles.tableHead}>Пассив. доход ₽</span>
               <span className={styles.tableHead}>Актив ₽</span>
               <span className={styles.tableHead}>Кол-во</span>
-              <span className={styles.tableHead} />
-              {group.map(asset => {
-                const salePrice = Math.round(asset.cost * 0.8)
-                return (
+              {group.map(asset => (
                   <div key={asset.id || asset.title} className={styles.tableRow}>
                     <span>{asset.title || 'Актив'}</span>
                     <strong className={styles.tone_passive}>{formatCurrency(asset.cashFlow)}</strong>
                     <strong className={styles.tone_income}>{formatCurrency(asset.cost)}</strong>
                     <span>{asset.quantity || 1}</span>
-                    {onSellAsset ? (
-                      <button
-                        className={styles.rowAction}
-                        type="button"
-                        disabled={disabled || !asset.id}
-                        title={`Продать за ${formatCurrency(salePrice)}`}
-                        onClick={() => onSellAsset(asset.id)}
-                      >
-                        Продать
-                      </button>
-                    ) : <span />}
                   </div>
-                )
-              })}
+              ))}
             </div>
           </div>
         )
@@ -189,20 +176,23 @@ function LiabilitiesTable({
   cash,
   disabled,
   onPayLiability,
+  availableCredit,
+  creditPayment,
+  onTakeCredit,
 }: {
   liabilities: FinGuruLiability[]
   cash: number
   disabled: boolean
   onPayLiability?: (liabilityId: string) => void
+  availableCredit: number
+  creditPayment: number
+  onTakeCredit?: () => void
 }) {
-  if (liabilities.length === 0) {
-    return <p className={styles.emptyText}>Пассивов пока нет</p>
-  }
-
   const grouped = groupByType(liabilities, 'liabilityType')
 
   return (
     <div className={styles.groupStack}>
+      {liabilities.length === 0 && <p className={styles.emptyText}>Пассивов пока нет</p>}
       {Object.entries(grouped).map(([type, group]) => {
         const payment = group.reduce((sum, liability) => sum + liability.payment, 0)
         const balance = group.reduce((sum, liability) => sum + liability.balance, 0)
@@ -244,6 +234,24 @@ function LiabilitiesTable({
           </div>
         )
       })}
+      <div className={styles.creditInfo}>
+        <div>
+          <span>Доступен кредит</span>
+          <strong>
+            {formatCurrency(availableCredit)}
+            {' '}
+            <em>({formatCurrency(creditPayment)})</em>
+          </strong>
+        </div>
+        <button
+          className={styles.creditButton}
+          type="button"
+          disabled={disabled || availableCredit <= 0 || !onTakeCredit}
+          onClick={onTakeCredit}
+        >
+          Взять кредит
+        </button>
+      </div>
     </div>
   )
 }
@@ -260,13 +268,20 @@ export default function Dashboard({
   liabilities = [],
   cash = stats.cash,
   disabled = false,
+  assetsOnly = false,
+  accruedSalary = 0,
+  salaryPayoutMode = 'automatic',
   icon,
-  onSellAsset,
   onPayLiability,
+  onTakeCredit,
+  onClaimSalary,
 }: DashboardProps) {
   const totalIncome = stats.salary + stats.passiveIncome
   const liabilitiesPayment = liabilities.reduce((sum, liability) => sum + liability.payment, 0)
   const totalDebt = liabilities.reduce((sum, liability) => sum + liability.balance, 0)
+  const availableCredit = Math.max(0, stats.cashFlow * 10)
+  const creditPayment = availableCredit > 0 ? Math.ceil(availableCredit * 0.1) : 0
+  const canClaimSalary = salaryPayoutMode === 'manual' && accruedSalary > 0 && Boolean(onClaimSalary)
 
   return (
     <div className={styles.container}>
@@ -286,21 +301,33 @@ export default function Dashboard({
         )}
       </div>
 
-      <div className={styles.statsSection}>
-        <div className={styles.miniCards}>
-          <MoneyCard label="Наличные" amount={stats.cash} tone="cash" />
-          <MoneyCard label="Зарплата" amount={stats.salary} tone="income" />
-          <MoneyCard label="Расходы" amount={stats.expenses} tone="expense" />
+      {!assetsOnly && (
+        <div className={styles.statsSection}>
+          <div className={styles.miniCards}>
+            <MoneyCard label="Наличные" amount={stats.cash} tone="cash" />
+            <MoneyCard label="Зарплата" amount={stats.salary} tone="income" />
+            <MoneyCard label="Расходы" amount={stats.expenses} tone="expense" />
+          </div>
+          <div className={styles.largeCards}>
+            <MoneyCard label="Пассивный доход" amount={stats.passiveIncome} tone="passive" large />
+            <MoneyCard label="Денежный поток" amount={stats.cashFlow} tone="flow" large />
+          </div>
+          {salaryPayoutMode === 'manual' && (
+            <button
+              className={styles.salaryClaimButton}
+              type="button"
+              disabled={disabled || !canClaimSalary}
+              onClick={onClaimSalary}
+            >
+              Получить зарплату {formatCurrency(accruedSalary)}
+            </button>
+          )}
         </div>
-        <div className={styles.largeCards}>
-          <MoneyCard label="Пассивный доход" amount={stats.passiveIncome} tone="passive" large />
-          <MoneyCard label="Денежный поток" amount={stats.cashFlow} tone="flow" large />
-        </div>
-      </div>
+      )}
 
-      <ProgressBar goalAmount={goalTarget} progressAmount={progressAmount} />
+      {!assetsOnly && <ProgressBar goalAmount={goalTarget} progressAmount={progressAmount} />}
 
-      {statuses.length > 0 && (
+      {!assetsOnly && statuses.length > 0 && (
         <div className={styles.statusSection}>
           {statuses.map((status, index) => (
             <div key={`${status.label}-${index}`} className={styles.statusChip} style={{ background: status.bgColor }}>
@@ -311,7 +338,7 @@ export default function Dashboard({
         </div>
       )}
 
-      <Section title="Доходы и активы" defaultExpanded>
+      <Section title="Активы" defaultExpanded>
         <div className={styles.totalStrip}>
           <span>
             Общий доход
@@ -326,14 +353,16 @@ export default function Dashboard({
             <strong className={styles.tone_flow}>{formatCurrency(stats.cashFlow)}</strong>
           </span>
         </div>
-        <div className={styles.baseLine}>
-          <span>Зарплата</span>
-          <strong className={styles.tone_income}>{formatCurrency(stats.salary)}</strong>
-        </div>
-        <AssetsTable assets={assets} disabled={disabled} onSellAsset={onSellAsset} />
+        {!assetsOnly && (
+          <div className={styles.baseLine}>
+            <span>Зарплата</span>
+            <strong className={styles.tone_income}>{formatCurrency(stats.salary)}</strong>
+          </div>
+        )}
+        <AssetsTable assets={assets} />
       </Section>
 
-      <Section title="Расходы и пассивы" defaultExpanded>
+      {!assetsOnly && <Section title="Расходы" defaultExpanded>
         <div className={styles.totalStrip}>
           <span>
             Общие расходы
@@ -353,8 +382,11 @@ export default function Dashboard({
           cash={cash}
           disabled={disabled}
           onPayLiability={onPayLiability}
+          availableCredit={availableCredit}
+          creditPayment={creditPayment}
+          onTakeCredit={onTakeCredit}
         />
-      </Section>
+      </Section>}
     </div>
   )
 }

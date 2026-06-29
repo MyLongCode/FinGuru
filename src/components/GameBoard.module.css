@@ -18,7 +18,17 @@
 .background {
   position: absolute;
   inset: 0;
-  background: rgb(242, 242, 242);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.95) 0 23%, transparent 23.2%),
+    repeating-conic-gradient(
+      from -5deg,
+      rgba(255, 59, 48, 0.28) 0deg 12deg,
+      rgba(255, 204, 0, 0.32) 12deg 24deg,
+      rgba(52, 199, 89, 0.3) 24deg 36deg,
+      rgba(0, 122, 255, 0.26) 36deg 48deg,
+      rgba(175, 82, 222, 0.28) 48deg 60deg
+    ),
+    rgb(242, 242, 247);
   overflow: hidden;
 }
 
@@ -34,7 +44,7 @@
 
 .wheelWrapper {
   position: absolute;
-  inset: 0;
+  inset: 0 0 46px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -45,16 +55,19 @@
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 0;
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 0;
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: none;
   position: relative;
-  z-index: 1;
-  margin-top: 14px;
+  z-index: 3;
+  width: min(480px, calc(100% - 64px));
+  min-height: 32px;
+  margin-top: 10px;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .topBarWrapper {
@@ -77,13 +90,14 @@
 }
 
 .tab {
+  flex: 1 1 0;
   border: none;
-  border-radius: 6px;
-  padding: 9px 20px;
+  border-radius: 16px;
+  padding: 0 18px;
   font-family: 'Montserrat Alternates', sans-serif;
   font-weight: 600;
-  font-size: 13px;
-  color: rgba(80, 80, 90, 0.7);
+  font-size: 12px;
+  color: rgb(0, 0, 0);
   background: transparent;
   cursor: pointer;
   transition: all 0.25s ease;
@@ -93,7 +107,7 @@
 .tabActive {
   background: rgb(255, 255, 255);
   color: rgb(40, 40, 50);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .wheelSvg {
@@ -106,12 +120,6 @@
   width: 100%;
   height: 100%;
   transform-origin: center;
-}
-
-.wheelDiscRolling {
-  animation: wheelSpin 3s cubic-bezier(0.22, 0.76, 0.24, 1) 1 forwards;
-  transform-box: view-box;
-  transform-origin: 50% 50%;
 }
 
 .rollBadge {
@@ -134,50 +142,106 @@
   pointer-events: none;
 }
 
-@keyframes wheelSpin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(1080deg);
-  }
-}
-
 @media (max-width: 768px) {
+  .container {
+    min-height: 520px;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .tabs {
+    width: calc(100% - 32px);
+    min-height: 30px;
+    margin-top: 8px;
+  }
+
+  .tab {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .wheelWrapper {
+    inset: 28px 0 74px;
+  }
+
   .wheelSvg {
-    transform: scale(1.6);
+    transform: scale(1.42);
     transform-origin: center center;
+  }
+
+  .rollBadge {
+    max-width: calc(100% - 48px);
+    transform: translate(-50%, 70px);
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+
+  .diceDock {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .diceTray {
+    gap: 8px;
+  }
+
+  .die {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+
+  .pip {
+    width: 6px;
+    height: 6px;
+  }
+
+  .pip1 { left: 8px; top: 8px; }
+  .pip3 { right: 8px; top: 8px; }
+  .pip7 { left: 8px; bottom: 8px; }
+  .pip9 { right: 8px; bottom: 8px; }
+
+  .rollButton {
+    min-width: 120px;
+    min-height: 34px;
+    margin-bottom: 12px;
+    padding: 0 16px;
+    border-radius: 18px;
+    font-size: 12px;
   }
 }
 
 .rollButton {
-  background: rgb(52, 199, 89);
+  min-width: 110px;
+  min-height: 32px;
+  padding: 0 16px;
   border: none;
-  border-radius: 8px;
-  padding: 16px 54px;
-  font-family: 'Montserrat Alternates', sans-serif;
-  font-weight: 700;
-  font-size: 18px;
+  border-radius: 16px;
+  background: #7776dc;
   color: white;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(52, 199, 89, 0.34);
-  transition: all 0.2s ease;
-  letter-spacing: 0;
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: 0;
+  cursor: pointer;
+  box-shadow: none;
+  transition: transform 0.2s ease, background 0.2s ease;
   position: relative;
   z-index: 1;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   flex-shrink: 0;
 }
 
 .rollButton:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(52, 199, 89, 0.42);
+  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 .rollButton:disabled {
   cursor: not-allowed;
-  background: rgb(174, 174, 178);
+  background: rgba(120, 120, 128, 0.45);
   box-shadow: none;
   transform: none;
 }
@@ -192,7 +256,7 @@
   z-index: 2;
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 20px;
   flex-shrink: 0;
 }
@@ -201,52 +265,17 @@
   display: none;
 }
 
-.diceSelector {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-}
-
-.diceCount,
-.diceCountActive {
-  width: 34px;
-  height: 30px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: rgb(99, 99, 110);
-  font-family: 'Montserrat Alternates', sans-serif;
-  font-size: 13px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.diceCountActive {
-  background: rgb(52, 199, 89);
-  color: white;
-}
-
-.diceCount:disabled,
-.diceCountActive:disabled {
-  cursor: default;
-  opacity: 0.72;
-}
-
 .diceTray {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 58px;
-  padding: 8px 12px;
-  border: 1px solid rgba(60, 60, 67, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .die {
@@ -297,4 +326,40 @@
   100% {
     transform: translateY(0) rotateX(360deg) rotateZ(180deg) scale(1);
   }
+}
+
+@media (max-width: 768px) {
+  .rollButton {
+    min-width: 120px;
+    min-height: 34px;
+    margin-bottom: 12px;
+    padding: 0 16px;
+    border-radius: 18px;
+    font-size: 12px;
+  }
+
+  .diceDock {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .diceTray {
+    gap: 8px;
+  }
+
+  .die {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+
+  .pip {
+    width: 6px;
+    height: 6px;
+  }
+
+  .pip1 { left: 8px; top: 8px; }
+  .pip3 { right: 8px; top: 8px; }
+  .pip7 { left: 8px; bottom: 8px; }
+  .pip9 { right: 8px; bottom: 8px; }
 }

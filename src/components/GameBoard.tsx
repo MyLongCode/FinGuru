@@ -37,11 +37,10 @@ interface GameBoardProps {
   bigSectorDreams?: DreamMarker[]
   currentPlayerId?: string
   isRolling?: boolean
-  selectedDiceCount?: 1 | 2 | 3
+  diceCount?: number
   diceValues?: number[]
   lastRollLabel?: string
   rollButtonLabel?: string
-  onDiceCountChange?: (count: 1 | 2 | 3) => void
   activeTab?: 'small' | 'big'
   onTabChange?: (tab: 'small' | 'big') => void
   onRollDice?: () => void
@@ -233,11 +232,10 @@ export default function GameBoard({
   bigSectorDreams = [],
   currentPlayerId,
   isRolling = false,
-  selectedDiceCount = 2,
+  diceCount = 2,
   diceValues = [],
   lastRollLabel,
   rollButtonLabel,
-  onDiceCountChange,
   activeTab = 'small',
   onTabChange,
   onRollDice,
@@ -245,6 +243,7 @@ export default function GameBoard({
   const [internalTab, setInternalTab] = useState<'small' | 'big'>('small')
   const [activeIndex, setActiveIndex] = useState(5)
   const [isMobile, setIsMobile] = useState(false)
+  const visibleDiceCount = Math.max(1, diceCount, diceValues.length)
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 1023px)')
@@ -458,7 +457,7 @@ export default function GameBoard({
             </defs>
 
             <g style={transformStyle}>
-              <g className={isRolling ? styles.wheelDiscRolling : undefined}>
+              <g>
                 {innerSectorElements}
 
                 <circle cx={CX} cy={CY} r={INNER_SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
@@ -539,22 +538,8 @@ export default function GameBoard({
         <div style={{ flex: 1, minHeight: 0 }} />
 
         <div className={styles.diceDock}>
-          <div className={styles.diceSelector} aria-label="Количество кубиков">
-            {[1, 2, 3].map((count) => (
-              <button
-                key={count}
-                type="button"
-                className={selectedDiceCount === count ? styles.diceCountActive : styles.diceCount}
-                onClick={() => onDiceCountChange?.(count as 1 | 2 | 3)}
-                disabled={isRolling || !onRollDice}
-              >
-                {count}
-              </button>
-            ))}
-          </div>
-
           <div className={styles.diceTray} aria-live="polite">
-            {Array.from({ length: selectedDiceCount }, (_, index) => (
+            {Array.from({ length: visibleDiceCount }, (_, index) => (
               <Die
                 key={index}
                 value={diceValues[index] ?? ((index % 6) + 1)}
@@ -568,10 +553,6 @@ export default function GameBoard({
             {rollButtonLabel ?? (isRolling ? 'Бросаем...' : 'Бросить кубики')}
           </button>
         </div>
-
-        <button className={styles.rollButton} onClick={onRollDice} disabled={!onRollDice || isRolling}>
-          {rollButtonLabel ?? (isRolling ? 'Бросаем...' : 'Бросить кубик')}
-        </button>
       </div>
     </div>
   )

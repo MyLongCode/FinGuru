@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import Dashboard from '../components/Dashboard'
@@ -16,19 +16,40 @@ import {
   subscribeGameError,
   subscribeCellResolved,
   resolveCellAction,
-  sellAsset,
   payLiability,
   getBoard,
   getDeals,
   getAssets,
+  takeCredit,
+  claimSalary,
+  placeAuctionBid,
+  passAuction,
+  completeAuction,
   type GameState,
   type DecisionOption,
+  type FinGuruAuctionState,
   type DiceRollResult,
   type CellResolvedEvent,
 } from '../sdk'
 import styles from './GamePage.module.css'
 
-const MIN_ROLL_ANIMATION_MS = 3000
+const MIN_DICE_ANIMATION_MS = 900
+const VICTORY_CASH_FLOW_TARGET = 50000
+
+interface EventCardData {
+  id: string
+  sectorType: string
+  sectorLabel: string
+  title: string
+  description: string
+  playerName: string
+  playerColor: string
+  diceLabel?: string
+  cashChange?: number
+  newCash?: number
+  incomeChange?: number
+  expensesChange?: number
+}
 
 export default function GamePage() {
   const { roleName } = useParams<{ roleName: string }>()
@@ -44,8 +65,8 @@ export default function GamePage() {
   const [moveHistory, setMoveHistory] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'small' | 'big'>('small')
   const [rightPanelTab, setRightPanelTab] = useState<'players' | 'history'>('players')
+  const [mobileView, setMobileView] = useState<'profile' | 'small' | 'big' | 'players' | 'history'>('profile')
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
-  const [selectedDiceCount, setSelectedDiceCount] = useState<1 | 2 | 3>(2)
   const [isRolling, setIsRolling] = useState(false)
   const [isResolvingDecision, setIsResolvingDecision] = useState(false)
   const [lastRoll, setLastRoll] = useState<DiceRollResult | null>(null)
@@ -53,6 +74,7 @@ export default function GamePage() {
   const [board, setBoard] = useState<any[] | null>(null)
   const [deals, setDeals] = useState<any[] | null>(null)
   const [assets, setAssets] = useState<any[] | null>(null)
+  const [activeEventCard, setActiveEventCard] = useState<EventCardData | null>(null)
   const rollTimeoutRef = useRef<number | null>(null)
   const rollStartedAtRef = useRef<number>(0)
   const decisionTimeoutRef = useRef<number | null>(null)
@@ -146,8 +168,10 @@ export default function GamePage() {
             turnCount: result.turnCount ?? prev.turnCount,
             phase: result.phase ?? prev.phase,
             pendingDecision: result.pendingDecision ?? prev.pendingDecision,
+            pendingAuction: prev.pendingAuction,
             winners: result.winners ?? prev.winners,
             finalResults: result.finalResults ?? prev.finalResults,
+            settings: result.settings ?? prev.settings,
           }
         })
 
@@ -155,6 +179,21 @@ export default function GamePage() {
         if (me) setMyColor(me.color)
 
         const rolledPlayer = result.players.find(p => p.playerId === result.rolledBy)
+        const rollDiceValues = result.diceValues?.length
+          ? result.diceValues
+          : [result.dice1, result.dice2].filter(Boolean)
+        setActiveEventCard({
+          id: `roll:${Date.now()}:${result.rolledBy}`,
+          sectorType: result.sectorType,
+          sectorLabel: result.sectorLabel,
+          title: result.eventTitle || getFallbackEventTitle(result.sectorType, result.sectorLabel),
+          description: result.eventMessage || getFallbackEventMessage(result),
+          playerName: rolledPlayer?.displayName ?? result.rolledBy,
+          playerColor: rolledPlayer?.color ?? '#7776dc',
+          diceLabel: rollDiceValues.length ? `${rollDiceValues.join(' + ')} = ${result.total}` : undefined,
+          cashChange: result.cashChange,
+          newCash: result.newCash,
+        })
         const nextPlayerId = result.currentPlayerId ?? result.nextPlayerId
         const nextPlayer = result.players.find(p => p.playerId === nextPlayerId)
         setStatusMessage(result.phase === 'gameOver'
@@ -195,7 +234,7 @@ export default function GamePage() {
       }
 
       const elapsed = Date.now() - rollStartedAtRef.current
-      const remaining = Math.max(0, MIN_ROLL_ANIMATION_MS - elapsed)
+      const remaining = Math.max(0, MIN_DICE_ANIMATION_MS - elapsed)
       if (remaining > 0) {
         rollTimeoutRef.current = window.setTimeout(applyRollResult, remaining)
       } else {
@@ -218,6 +257,21 @@ export default function GamePage() {
       if (result.action === 'choosedealdeck') return
 
       const player = event.state?.players.find(p => p.playerId === result.playerId)
+      if (result.title || result.message) {
+        setActiveEventCard({
+          id: `cell:${Date.now()}:${result.playerId}`,
+          sectorType: result.success ? 'deal' : 'negative',
+          sectorLabel: result.success ? 'Действие выполнено' : 'Действие не выполнено',
+          title: result.title || (result.success ? 'Действие выполнено' : 'Действие не выполнено'),
+          description: result.message,
+          playerName: player?.displayName ?? result.playerId,
+          playerColor: player?.color ?? '#34C759',
+          cashChange: result.cashChange,
+          incomeChange: result.incomeChange,
+          expensesChange: result.expensesChange,
+          newCash: result.newCash,
+        })
+      }
       setMoveHistory(prev => [
         {
           key: `cell:${Date.now()}:${result.playerId}`,
@@ -281,10 +335,11 @@ export default function GamePage() {
     clearRollTimeout()
     rollStartedAtRef.current = Date.now()
     setIsRolling(true)
-    setStatusMessage('Колесо крутится...')
+    setStatusMessage('Бросаем кубики...')
 
     const sdk = getSdk()
-    rollDice(sdk, roomId, sdkPlayerId, selectedDiceCount)
+    const diceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
+    rollDice(sdk, roomId, sdkPlayerId, diceCount)
 
     rollTimeoutRef.current = window.setTimeout(() => {
       setIsRolling(false)
@@ -299,9 +354,9 @@ export default function GamePage() {
         rollTimeoutRef.current = null
       })
     }, 10000)
-  }, [roomId, sdkPlayerId, selectedDiceCount, isRolling, clearRollTimeout])
+  }, [roomId, sdkPlayerId, isRolling, clearRollTimeout, gameState?.settings?.diceCount])
 
-  const handleDecisionAction = useCallback((option: string, action?: string) => {
+  const handleDecisionAction = useCallback((option: string, action?: string, quantity?: number, offerPrice?: number) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
     clearDecisionTimeout()
     setIsResolvingDecision(true)
@@ -312,27 +367,66 @@ export default function GamePage() {
 
     const sdk = getSdk()
     if (action === 'skip' || option === 'skip') {
-      resolveCellAction(sdk, roomId, sdkPlayerId, 'skip', option)
+      resolveCellAction(sdk, roomId, sdkPlayerId, 'skip', option, quantity, offerPrice)
       return
     }
     if (action === 'chooseDealDeck') {
-      resolveCellAction(sdk, roomId, sdkPlayerId, 'chooseDealDeck', option)
+      resolveCellAction(sdk, roomId, sdkPlayerId, 'chooseDealDeck', option, quantity, offerPrice)
       return
     }
-    resolveCellAction(sdk, roomId, sdkPlayerId, action ?? 'buyDeal', option)
+    resolveCellAction(sdk, roomId, sdkPlayerId, action ?? 'buyDeal', option, quantity, offerPrice)
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
-
-  const handleSellAsset = useCallback((assetId: string) => {
-    if (isResolvingDecision || !roomId || !sdkPlayerId) return
-    setIsResolvingDecision(true)
-    sellAsset(getSdk(), roomId, sdkPlayerId, assetId)
-  }, [roomId, sdkPlayerId, isResolvingDecision])
 
   const handlePayLiability = useCallback((liabilityId: string) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
     setIsResolvingDecision(true)
     payLiability(getSdk(), roomId, sdkPlayerId, liabilityId)
   }, [roomId, sdkPlayerId, isResolvingDecision])
+
+  const handleTakeCredit = useCallback(() => {
+    if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    setIsResolvingDecision(true)
+    takeCredit(getSdk(), roomId, sdkPlayerId)
+  }, [roomId, sdkPlayerId, isResolvingDecision])
+
+  const handleClaimSalary = useCallback(() => {
+    if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    setIsResolvingDecision(true)
+    claimSalary(getSdk(), roomId, sdkPlayerId)
+  }, [roomId, sdkPlayerId, isResolvingDecision])
+
+  const handleAuctionBid = useCallback((bid: number) => {
+    if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    clearDecisionTimeout()
+    setIsResolvingDecision(true)
+    decisionTimeoutRef.current = window.setTimeout(() => {
+      setIsResolvingDecision(false)
+      decisionTimeoutRef.current = null
+    }, 8000)
+    placeAuctionBid(getSdk(), roomId, sdkPlayerId, bid)
+  }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
+
+  const handleAuctionPass = useCallback(() => {
+    if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    clearDecisionTimeout()
+    setIsResolvingDecision(true)
+    decisionTimeoutRef.current = window.setTimeout(() => {
+      setIsResolvingDecision(false)
+      decisionTimeoutRef.current = null
+    }, 8000)
+    passAuction(getSdk(), roomId, sdkPlayerId)
+  }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
+
+  const handleAuctionComplete = useCallback(() => {
+    if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    clearDecisionTimeout()
+    setIsResolvingDecision(true)
+    decisionTimeoutRef.current = window.setTimeout(() => {
+      setIsResolvingDecision(false)
+      decisionTimeoutRef.current = null
+    }, 8000)
+    completeAuction(getSdk(), roomId, sdkPlayerId)
+  }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
   if (!data) return <p>Роль не найдена</p>
 
@@ -354,6 +448,8 @@ export default function GamePage() {
     isOnBigCircle: false,
     skipNextTurn: false,
     skipTurnsRemaining: 0,
+    charityDiceTurnsRemaining: 0,
+    accruedSalary: 0,
   }
 
   const boardPlayers = (gameState?.players ?? [])
@@ -393,12 +489,20 @@ export default function GamePage() {
   const inspectedPlayerId = selectedPlayerId && gamePlayers.some(player => player.playerId === selectedPlayerId)
     ? selectedPlayerId
     : (gamePlayers.some(player => player.playerId === sdkPlayerId) ? sdkPlayerId : gamePlayers[0]?.playerId)
-  const inspectedPlayer = gamePlayers.find(player => player.playerId === inspectedPlayerId) ?? null
-  const myPendingDecision = gameState?.pendingDecision?.playerId === sdkPlayerId
-    ? gameState.pendingDecision
+  const pendingDecision = gameState?.pendingDecision ?? null
+  const pendingAuction = gameState?.pendingAuction ?? null
+  const publicOfferOption = pendingDecision?.decisionType === 'dealPublicOffer'
+    ? pendingDecision.decisionOptions?.find(option => option.action === 'acceptDealOffer')
+    : undefined
+  const isPublicOfferVisible = pendingDecision?.decisionType === 'dealPublicOffer' && publicOfferOption
+  const myPendingDecision = pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible
+    ? pendingDecision
     : null
+  const readOnlyEventCard = activeEventCard && !myPendingDecision && !pendingAuction ? activeEventCard : null
   const isChoosingDealDeck = myPendingDecision?.decisionOptions?.some(option => option.action === 'chooseDealDeck') ?? false
-  const isDealCardDecision = myPendingDecision?.decisionType === 'dealCard' || myPendingDecision?.decisionType === 'dealOffer'
+  const isDealCardDecision = myPendingDecision?.decisionType === 'dealCard'
+    || myPendingDecision?.decisionType === 'dealOffer'
+    || myPendingDecision?.decisionType === 'dealPublicOffer'
   const dealCardOption = myPendingDecision?.decisionOptions?.find(option => option.action === 'buyDeal' || option.action === 'acceptDealOffer')
   const isMyTurn = gameState?.phase === 'playing' && gameState.currentPlayerId === sdkPlayerId
   const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
@@ -407,6 +511,10 @@ export default function GamePage() {
   const salaryIncome = Math.max(0, dashboardPlayer.income - passiveIncome)
   const cashFlow = salaryIncome + passiveIncome - dashboardPlayer.expenses
   const skipTurnsRemaining = dashboardPlayer.skipTurnsRemaining ?? (dashboardPlayer.skipNextTurn ? 1 : 0)
+  const charityDiceTurnsRemaining = dashboardPlayer.charityDiceTurnsRemaining ?? 0
+  const configuredDiceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
+  const salaryPayoutMode = gameState?.settings?.salaryPayoutMode ?? 'automatic'
+  const activeDiceCount = charityDiceTurnsRemaining > 0 ? 3 : configuredDiceCount
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const statuses = [
     ...(isFinanciallyFree ? [{
@@ -423,10 +531,22 @@ export default function GamePage() {
         : `Осталось пропусков: ${skipTurnsRemaining}`,
       bgColor: 'rgba(255, 59, 48, 0.14)',
     }] : []),
+    ...(charityDiceTurnsRemaining > 0 ? [{
+      label: '3 кубика',
+      description: charityDiceTurnsRemaining === 1
+        ? 'Остался 1 усиленный бросок'
+        : `Осталось бросков: ${charityDiceTurnsRemaining}`,
+      bgColor: 'rgba(52, 199, 89, 0.16)',
+    }] : []),
     ...(myPendingDecision ? [{
       label: 'Нужно решение',
       description: myPendingDecision.sectorLabel || 'Выберите действие',
       bgColor: 'rgba(255, 149, 0, 0.18)',
+    }] : []),
+    ...(pendingAuction ? [{
+      label: 'Аукцион',
+      description: pendingAuction.dealCard.title || 'Идут ставки',
+      bgColor: 'rgba(88, 86, 214, 0.16)',
     }] : []),
   ]
   const lastRollLabel = lastRoll
@@ -439,13 +559,19 @@ export default function GamePage() {
     : isGameOver
       ? 'Игра завершена'
       : isMyTurn
-        ? 'Бросить кубик'
+        ? activeDiceCount > 2 ? 'Бросить 3 кубика' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
         : activePlayer
           ? `Ходит ${activePlayer.displayName}`
           : 'Ожидание'
 
+  const handleMobileViewChange = useCallback((view: 'profile' | 'small' | 'big' | 'players' | 'history') => {
+    setMobileView(view)
+    if (view === 'small' || view === 'big') setActiveTab(view)
+    if (view === 'players' || view === 'history') setRightPanelTab(view)
+  }, [])
+
   return (
-    <div className={styles.gamePage}>
+    <div className={`${styles.gamePage} ${styles[`mobileView_${mobileView}`]}`}>
       <div className={styles.dashboardColumn}>
         <Dashboard
           playerName={dashboardPlayer.displayName}
@@ -458,15 +584,19 @@ export default function GamePage() {
             passiveIncome,
             cashFlow,
           }}
-          goalTarget={dashboardPlayer.expenses}
-          progressAmount={passiveIncome}
+          goalTarget={VICTORY_CASH_FLOW_TARGET}
+          progressAmount={Math.max(0, cashFlow)}
+          assetsOnly={dashboardPlayer.isOnBigCircle}
           statuses={statuses}
           assets={dashboardPlayer.assets ?? []}
           liabilities={dashboardPlayer.liabilities ?? []}
           cash={dashboardPlayer.cash}
           disabled={isResolvingDecision || gameState?.phase === 'gameOver'}
-          onSellAsset={handleSellAsset}
+          accruedSalary={dashboardPlayer.accruedSalary ?? 0}
+          salaryPayoutMode={salaryPayoutMode}
           onPayLiability={handlePayLiability}
+          onTakeCredit={handleTakeCredit}
+          onClaimSalary={handleClaimSalary}
           icon={icons[`/src/assets/roles/${roleName}.svg`]}
         />
       </div>
@@ -474,7 +604,7 @@ export default function GamePage() {
       <div className={styles.boardColumn}>
         <div className={styles.turnPanel}>
           <span className={styles.turnEyebrow}>
-            Раунд {gameState?.currentRound ?? 0}{gameState?.maxRounds ? ` / ${gameState.maxRounds}` : ''}
+            Круг {gameState?.currentRound ?? 0}
           </span>
           <strong>{statusMessage}</strong>
           {myDream && (
@@ -490,11 +620,10 @@ export default function GamePage() {
           bigSectorDreams={bigSectorDreams}
           currentPlayerId={isMyTurn ? sdkPlayerId : undefined}
           isRolling={isRolling}
-          selectedDiceCount={selectedDiceCount}
+          diceCount={activeDiceCount}
           diceValues={lastRoll?.diceValues ?? []}
           lastRollLabel={lastRollLabel}
           rollButtonLabel={rollButtonLabel}
-          onDiceCountChange={setSelectedDiceCount}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
@@ -530,9 +659,7 @@ export default function GamePage() {
             players={gamePlayers}
             currentPlayerId={gameState?.currentPlayerId ?? ''}
             selectedPlayerId={inspectedPlayerId ?? ''}
-            selectedPlayer={inspectedPlayer}
             dreams={gameState?.dreams ?? []}
-            turnCount={gameState?.turnCount ?? 0}
             onSelectPlayer={setSelectedPlayerId}
           />
         ) : (
@@ -543,19 +670,87 @@ export default function GamePage() {
         )}
       </div>
 
+      <nav className={styles.mobileTabBar} aria-label="Разделы игры">
+        <button
+          className={mobileView === 'profile' ? styles.mobileTabActive : styles.mobileTab}
+          type="button"
+          onClick={() => handleMobileViewChange('profile')}
+        >
+          <span className={styles.mobileTabIconProfile} />
+          <em>Профиль</em>
+        </button>
+        <button
+          className={mobileView === 'big' ? styles.mobileTabActive : styles.mobileTab}
+          type="button"
+          onClick={() => handleMobileViewChange('big')}
+        >
+          <span className={styles.mobileTabIconCircle} />
+          <em>Бол. круг</em>
+        </button>
+        <button
+          className={mobileView === 'small' ? styles.mobileTabActive : styles.mobileTab}
+          type="button"
+          onClick={() => handleMobileViewChange('small')}
+        >
+          <span className={styles.mobileTabIconCircleSmall} />
+          <em>Мал. круг</em>
+        </button>
+        <button
+          className={mobileView === 'players' ? styles.mobileTabActive : styles.mobileTab}
+          type="button"
+          onClick={() => handleMobileViewChange('players')}
+        >
+          <span className={styles.mobileTabIconPlayers} />
+          <em>Игроки</em>
+        </button>
+        <button
+          className={mobileView === 'history' ? styles.mobileTabActive : styles.mobileTab}
+          type="button"
+          onClick={() => handleMobileViewChange('history')}
+        >
+          <span className={styles.mobileTabIconHistory} />
+          <em>История</em>
+        </button>
+      </nav>
+
+      {readOnlyEventCard && (
+        <div className={styles.actionOverlay}>
+          <EventCard
+            card={readOnlyEventCard}
+            onClose={() => setActiveEventCard(null)}
+          />
+        </div>
+      )}
+
+      {pendingAuction && (
+        <div className={styles.actionOverlay}>
+          <AuctionCard
+            auction={pendingAuction}
+            players={gamePlayers}
+            currentPlayerId={sdkPlayerId}
+            cash={dashboardPlayer.cash}
+            disabled={isResolvingDecision}
+            onBid={handleAuctionBid}
+            onPass={handleAuctionPass}
+            onComplete={handleAuctionComplete}
+          />
+        </div>
+      )}
+
       {myPendingDecision && (
         <div className={styles.actionOverlay}>
-          <div className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck ? styles.dealActionModal : ''}`}>
+          <div className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
             {isDealCardDecision && dealCardOption ? (
               <DealDecisionCard
                 option={dealCardOption}
                 cash={dashboardPlayer.cash}
                 players={gamePlayers}
                 currentPlayerId={sdkPlayerId}
-                isOffer={myPendingDecision.decisionType === 'dealOffer'}
+                isOffer={myPendingDecision.decisionType === 'dealOffer' || myPendingDecision.decisionType === 'dealPublicOffer'}
+                isPublicOffer={myPendingDecision.decisionType === 'dealPublicOffer'}
                 disabled={isResolvingDecision}
-                onAccept={() => handleDecisionAction(dealCardOption.option, dealCardOption.action)}
-                onSellTo={(targetPlayerId) => handleDecisionAction(`sellTo:${targetPlayerId}`, 'sellDeal')}
+                onAccept={(quantity) => handleDecisionAction(dealCardOption.option, dealCardOption.action, quantity)}
+                onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
                 onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
                 onSkip={() => handleDecisionAction('skip', 'skip')}
               />
@@ -565,67 +760,126 @@ export default function GamePage() {
                 onChoose={(option) => handleDecisionAction(option, 'chooseDealDeck')}
               />
             ) : (
-              <>
-                <span className={styles.actionEyebrow}>{myPendingDecision.sectorLabel}</span>
-                <h2>
-                  {isChoosingDealDeck
-                    ? 'Выберите тип сделки'
-                    : myPendingDecision.decisionType === 'deal'
-                      ? 'Карта сделки'
-                      : 'Выберите действие'}
-                </h2>
-                <p>
-                  {isChoosingDealDeck
-                    ? 'Сначала выберите мелкую или крупную сделку. После выбора откроется одна карта из соответствующей колоды.'
-                    : myPendingDecision.decisionType === 'deal'
-                      ? 'Можно купить открытый актив или сохранить деньги.'
-                      : 'Событие требует решения. Выберите вариант и ход перейдёт дальше.'}
-                </p>
-                <div className={styles.actionGrid}>
-                  {(myPendingDecision.decisionOptions ?? [])
-                    .filter(option => option.option !== 'skip')
-                    .map(option => {
-                      const cannotAfford = option.action === 'buyDeal' && option.cost > dashboardPlayer.cash
-                      return (
-                        <button
-                          key={`${option.option}-${option.title}`}
-                          onClick={() => handleDecisionAction(option.option, option.action)}
-                          disabled={isResolvingDecision || cannotAfford}
-                        >
-                          <strong>{option.title}</strong>
-                          <span>{option.description}</span>
-                          {(option.dealType || option.ticker || option.cost > 0 || option.cashFlow !== 0 || option.assetValue > 0 || option.liabilityValue > 0 || option.roi || option.saleRange || option.cashChange !== 0 || option.incomeChange !== 0 || option.expensesChange !== 0) && (
-                            <span>
-                              {option.cardId ? `${option.cardId} ` : ''}
-                              {option.dealType ? `${option.dealType} ` : ''}
-                              {option.ticker ? `${option.ticker} ` : ''}
-                              {option.cost > 0 ? `Взнос ${formatMoney(option.cost)} ` : ''}
-                              {option.assetValue > 0 ? `Актив ${formatMoney(option.assetValue)} ` : ''}
-                              {option.liabilityValue > 0 ? `Пассив ${formatMoney(option.liabilityValue)} ` : ''}
-                              {option.cashFlow !== 0 ? `Поток ${formatDelta(option.cashFlow)} ` : ''}
-                              {option.roi ? `ROI ${option.roi} ` : ''}
-                              {option.saleRange ? `Продажа ${option.saleRange} ` : ''}
-                              {option.cashChange !== 0 ? `Наличные ${formatDelta(option.cashChange)} ` : ''}
-                              {option.incomeChange !== 0 ? `Доход ${formatDelta(option.incomeChange)} ` : ''}
-                              {option.expensesChange !== 0 ? `Расходы ${formatDelta(option.expensesChange)}` : ''}
-                            </span>
-                          )}
-                          {cannotAfford && <span>Не хватает {formatMoney(option.cost - dashboardPlayer.cash)}</span>}
-                        </button>
-                      )
-                    })}
-                </div>
-                <button className={styles.secondaryAction} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
-                  {myPendingDecision.decisionType === 'deal'
-                    ? 'Пропустить сделку'
-                    : 'Пропустить'}
-                </button>
-              </>
+              <EventCard
+                card={{
+                  id: `decision:${myPendingDecision.playerId}:${myPendingDecision.createdAt ?? ''}`,
+                  sectorType: myPendingDecision.sectorType,
+                  sectorLabel: myPendingDecision.sectorLabel,
+                  title: activeEventCard?.title || getFallbackEventTitle(myPendingDecision.sectorType, myPendingDecision.sectorLabel),
+                  description: activeEventCard?.description || 'Событие требует решения. Выберите вариант, чтобы передать ход дальше.',
+                  playerName: dashboardPlayer.displayName,
+                  playerColor: dashboardPlayer.color,
+                  diceLabel: activeEventCard?.diceLabel,
+                  cashChange: activeEventCard?.cashChange,
+                  newCash: activeEventCard?.newCash,
+                }}
+                actions={
+                  <>
+                    <div className={styles.eventActionGrid}>
+                      {(myPendingDecision.decisionOptions ?? [])
+                        .filter(option => option.option !== 'skip')
+                        .map(option => {
+                          const cannotAfford = option.action === 'buyDeal' && option.cost > dashboardPlayer.cash
+                          return (
+                            <button
+                              key={`${option.option}-${option.title}`}
+                              className={styles.eventActionButton}
+                              onClick={() => handleDecisionAction(option.option, option.action)}
+                              disabled={isResolvingDecision || cannotAfford}
+                            >
+                              <strong>{option.title}</strong>
+                              <span>{option.description}</span>
+                              {cannotAfford && <em>Не хватает {formatMoney(option.cost - dashboardPlayer.cash)}</em>}
+                            </button>
+                          )
+                        })}
+                    </div>
+                    <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
+                      {myPendingDecision.decisionType === 'deal' ? 'Пропустить сделку' : 'Пропустить'}
+                    </button>
+                  </>
+                }
+              />
             )}
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function EventCard({
+  card,
+  actions,
+  onClose,
+}: {
+  card: EventCardData
+  actions?: ReactNode
+  onClose?: () => void
+}) {
+  const toneClass = styles[`eventCard_${getEventTone(card.sectorType)}`]
+  const details = [
+    card.cashChange !== undefined && card.cashChange !== 0
+      ? {
+          label: 'Наличные',
+          value: formatDelta(card.cashChange),
+          tone: card.cashChange > 0 ? 'positive' : 'negative',
+        }
+      : null,
+    card.incomeChange !== undefined && card.incomeChange !== 0
+      ? {
+          label: 'Доход',
+          value: formatDelta(card.incomeChange),
+          tone: card.incomeChange > 0 ? 'positive' : 'negative',
+        }
+      : null,
+    card.expensesChange !== undefined && card.expensesChange !== 0
+      ? {
+          label: 'Расходы',
+          value: formatDelta(card.expensesChange),
+          tone: card.expensesChange > 0 ? 'negative' : 'positive',
+        }
+      : null,
+    card.newCash !== undefined ? { label: 'Наличные после', value: formatMoney(card.newCash) } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; tone?: 'positive' | 'negative' }>
+
+  return (
+    <article className={`${styles.eventCard} ${toneClass}`}>
+      <div className={styles.eventCardHeader}>
+        <span>{card.sectorLabel || getFallbackEventTitle(card.sectorType, '')}</span>
+      </div>
+
+      <div className={styles.eventCardBody}>
+        <span className={styles.eventCardPlayer} style={{ color: card.playerColor }}>
+          {card.playerName}
+        </span>
+        <h2>{card.title}</h2>
+        <p>{card.description}</p>
+      </div>
+
+      {details.length > 0 && (
+        <div className={styles.eventCardDetails}>
+          {details.map(detail => (
+            <div className={styles.eventCardDetail} key={detail.label}>
+              <span>{detail.label}</span>
+              <strong className={detail.tone === 'positive' ? styles.eventCardPositive : detail.tone === 'negative' ? styles.eventCardNegative : undefined}>
+                {detail.value}
+              </strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.eventCardSpacer} />
+
+      {actions ? (
+        <div className={styles.eventCardActions}>{actions}</div>
+      ) : (
+        <button className={styles.eventCardClose} type="button" onClick={onClose}>
+          Понятно
+        </button>
+      )}
+    </article>
   )
 }
 
@@ -683,9 +937,10 @@ function DealDecisionCard({
   players,
   currentPlayerId,
   isOffer,
+  isPublicOffer,
   disabled,
   onAccept,
-  onSellTo,
+  onSell,
   onAuction,
   onSkip,
 }: {
@@ -694,27 +949,39 @@ function DealDecisionCard({
   players: any[]
   currentPlayerId: string
   isOffer: boolean
+  isPublicOffer: boolean
   disabled: boolean
-  onAccept: () => void
-  onSellTo: (targetPlayerId: string) => void
+  onAccept: (quantity?: number) => void
+  onSell: (offerPrice: number) => void
   onAuction: () => void
   onSkip: () => void
 }) {
-  const tradeTargets = players.filter(player => player.playerId !== currentPlayerId)
-  const [selectedTargetId, setSelectedTargetId] = useState(tradeTargets[0]?.playerId ?? '')
   const offerPrice = option.offerPrice ?? 0
-  const totalCost = option.cost + (isOffer ? offerPrice : 0)
+  const isStockDeal = isStockOption(option)
+  const isOwnPublicOffer = isPublicOffer && option.offeredByPlayerId === currentPlayerId
+  const stockBudget = Math.max(0, cash - (isOffer ? offerPrice : 0))
+  const maxStockQuantity = isStockDeal && option.cost > 0 ? Math.max(1, Math.floor(stockBudget / option.cost)) : 1
+  const [stockQuantity, setStockQuantity] = useState(1)
+  const [salePrice, setSalePrice] = useState(Math.max(100, offerPrice || Math.round(Math.max(option.cost, option.assetValue) * 0.1)))
+  const purchaseQuantity = isStockDeal ? Math.min(stockQuantity, maxStockQuantity) : 1
+  const purchaseCost = option.cost * purchaseQuantity
+  const purchaseCashFlow = option.cashFlow * purchaseQuantity
+  const purchaseAssetValue = option.assetValue * purchaseQuantity
+  const totalCost = purchaseCost + (isOffer ? offerPrice : 0)
   const cannotAfford = totalCost > cash
   const isBigDeal = option.cardType === 'bigDeal' || option.option.startsWith('kru-')
   const isRealEstate = option.dealType.toLowerCase().includes('недвиж')
-  const canTrade = !isOffer && !isRealEstate && tradeTargets.length > 0
+  const canTrade = !isOffer && !isRealEstate && players.some(player => player.playerId !== currentPlayerId)
+  const canAcceptOffer = !isOwnPublicOffer
   const cardClass = isBigDeal ? styles.dealDecisionCardBig : styles.dealDecisionCardSmall
   const meta = [option.cardId, option.dealType, option.ticker].filter(Boolean).join(' · ')
   const details = [
     isOffer && offerPrice > 0 ? { label: 'Цена права', value: formatMoney(offerPrice) } : null,
-    option.assetValue > 0 ? { label: 'Стоимость актива', value: formatMoney(option.assetValue) } : null,
+    isStockDeal ? { label: 'Количество', value: `${purchaseQuantity} шт.` } : null,
+    isStockDeal ? { label: 'Цена за акцию', value: formatMoney(option.cost) } : null,
+    option.assetValue > 0 ? { label: 'Стоимость актива', value: formatMoney(isStockDeal ? purchaseAssetValue : option.assetValue) } : null,
     option.liabilityValue > 0 ? { label: 'Пассив / ипотека', value: formatMoney(option.liabilityValue) } : null,
-    option.cashFlow !== 0 ? { label: 'Денежный поток', value: formatDelta(option.cashFlow), accent: option.cashFlow > 0 ? 'positive' : 'negative' } : null,
+    option.cashFlow !== 0 ? { label: 'Денежный поток', value: formatDelta(isStockDeal ? purchaseCashFlow : option.cashFlow), accent: option.cashFlow > 0 ? 'positive' : 'negative' } : null,
     option.roi ? { label: 'ROI', value: option.roi } : null,
     option.saleRange ? { label: 'Диапазон продажи', value: option.saleRange } : null,
   ].filter(Boolean) as Array<{ label: string; value: string; accent?: 'positive' | 'negative' }>
@@ -729,8 +996,8 @@ function DealDecisionCard({
 
       <div className={styles.dealDecisionDetails}>
         <div className={styles.dealDecisionHeader}>
-          <span>Взнос</span>
-          <strong>{formatMoney(option.cost)}</strong>
+          <span>{isStockDeal ? 'Итого' : 'Взнос'}</span>
+          <strong>{formatMoney(totalCost)}</strong>
         </div>
         {details.map(detail => (
           <div className={styles.dealDecisionRow} key={detail.label}>
@@ -755,29 +1022,68 @@ function DealDecisionCard({
       <div className={styles.dealDecisionSpacer} />
 
       <div className={styles.dealDecisionActions}>
-        <button className={styles.dealDecisionButton} onClick={onAccept} disabled={disabled || cannotAfford}>
-          {isOffer ? 'Купить сделку' : 'Принять'}
+        {isStockDeal && canAcceptOffer && (
+          <div className={styles.stockQuantityControl}>
+            <span>
+              <b>{purchaseQuantity}</b>
+              акций
+            </span>
+            <div>
+              <button
+                type="button"
+                onClick={() => setStockQuantity(value => Math.max(1, value - 1))}
+                disabled={disabled || purchaseQuantity <= 1}
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={maxStockQuantity}
+                value={purchaseQuantity}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value)
+                  if (!Number.isFinite(nextValue)) return
+                  setStockQuantity(Math.max(1, Math.min(maxStockQuantity, Math.floor(nextValue))))
+                }}
+                disabled={disabled}
+                aria-label="Количество акций"
+              />
+              <button
+                type="button"
+                onClick={() => setStockQuantity(value => Math.min(maxStockQuantity, value + 1))}
+                disabled={disabled || purchaseQuantity >= maxStockQuantity}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
+        <button className={styles.dealDecisionButton} onClick={() => onAccept(isStockDeal ? purchaseQuantity : undefined)} disabled={disabled || cannotAfford || !canAcceptOffer}>
+          {isOwnPublicOffer ? 'Ожидаем покупателя' : isOffer ? 'Забрать сделку' : 'Принять'}
         </button>
         {canTrade && (
           <div className={styles.dealTradeControls}>
-            <select
-              className={styles.dealTradeSelect}
-              value={selectedTargetId}
-              onChange={(event) => setSelectedTargetId(event.target.value)}
-              disabled={disabled}
-            >
-              {tradeTargets.map(player => (
-                <option value={player.playerId} key={player.playerId}>
-                  {player.displayName || 'Игрок'}
-                </option>
-              ))}
-            </select>
+            <label className={styles.dealSalePrice}>
+              <span>Цена права</span>
+              <input
+                type="number"
+                min={0}
+                value={salePrice}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value)
+                  if (!Number.isFinite(nextValue)) return
+                  setSalePrice(Math.max(0, Math.floor(nextValue)))
+                }}
+                disabled={disabled}
+              />
+            </label>
             <button
               className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
-              onClick={() => selectedTargetId && onSellTo(selectedTargetId)}
-              disabled={disabled || !selectedTargetId}
+              onClick={() => onSell(salePrice)}
+              disabled={disabled}
             >
-              Продать право
+              Выставить всем
             </button>
             <button
               className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
@@ -788,9 +1094,161 @@ function DealDecisionCard({
             </button>
           </div>
         )}
-        <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={onSkip} disabled={disabled}>
-          {isOffer ? 'Отказаться' : 'Пропустить'}
-        </button>
+        {!isPublicOffer && (
+          <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={onSkip} disabled={disabled}>
+            {isOffer ? 'Отказаться' : 'Пропустить'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AuctionCard({
+  auction,
+  players,
+  currentPlayerId,
+  cash,
+  disabled,
+  onBid,
+  onPass,
+  onComplete,
+}: {
+  auction: FinGuruAuctionState
+  players: any[]
+  currentPlayerId: string
+  cash: number
+  disabled: boolean
+  onBid: (bid: number) => void
+  onPass: () => void
+  onComplete: () => void
+}) {
+  const deal = auction.dealCard
+  const seller = players.find(player => player.playerId === auction.sellerPlayerId)
+  const leader = players.find(player => player.playerId === auction.currentBidderPlayerId)
+  const isSeller = currentPlayerId === auction.sellerPlayerId
+  const isParticipant = auction.participantPlayerIds.includes(currentPlayerId)
+  const hasPassed = auction.passedPlayerIds.includes(currentPlayerId)
+  const isLeader = auction.currentBidderPlayerId === currentPlayerId
+  const minimumBid = auction.currentBidderPlayerId ? auction.currentBid + 1 : auction.startingBid
+  const purchaseCost = Math.max(0, deal.cost)
+  const [bidValue, setBidValue] = useState(minimumBid)
+  const normalizedBid = Math.max(minimumBid, Math.floor(Number.isFinite(bidValue) ? bidValue : minimumBid))
+  const totalRequired = purchaseCost + normalizedBid
+  const cannotAfford = totalRequired > cash
+  const canAct = isParticipant && !isSeller && !hasPassed
+  const canBid = canAct && !cannotAfford
+  const canPass = canAct && !isLeader
+  const activeParticipantIds = auction.participantPlayerIds.filter(playerId => playerId !== auction.currentBidderPlayerId)
+  const readyToComplete = activeParticipantIds.every(playerId => auction.passedPlayerIds.includes(playerId))
+  const meta = [deal.cardId, deal.dealType, deal.ticker].filter(Boolean).join(' · ')
+  const details = [
+    purchaseCost > 0 ? { label: 'Цена сделки', value: formatMoney(purchaseCost) } : null,
+    { label: 'Стартовая ставка', value: formatMoney(auction.startingBid) },
+    { label: 'Текущая ставка', value: formatMoney(auction.currentBid) },
+    deal.cashFlow !== 0 ? { label: 'Денежный поток', value: formatDelta(deal.cashFlow), accent: deal.cashFlow > 0 ? 'positive' : 'negative' } : null,
+    deal.assetValue > 0 ? { label: 'Стоимость актива', value: formatMoney(deal.assetValue) } : null,
+    deal.liabilityValue > 0 ? { label: 'Пассив / ипотека', value: formatMoney(deal.liabilityValue) } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; accent?: 'positive' | 'negative' }>
+
+  useEffect(() => {
+    setBidValue(value => Math.max(minimumBid, value))
+  }, [minimumBid])
+
+  return (
+    <div className={`${styles.dealDecisionCard} ${styles.auctionCard}`}>
+      <div className={styles.dealDecisionContent}>
+        <span className={styles.dealDecisionMeta}>Аукцион{meta ? ` · ${meta}` : ''}</span>
+        <h2 className={styles.dealDecisionTitle}>{deal.title || 'Сделка на аукционе'}</h2>
+        <p className={styles.dealDecisionDescription}>
+          {deal.description || 'Игроки делают ставки за право купить эту сделку.'}
+        </p>
+      </div>
+
+      <div className={styles.auctionSummary}>
+        <div>
+          <span>Продавец</span>
+          <strong>{seller?.displayName ?? 'Игрок'}</strong>
+        </div>
+        <div>
+          <span>Лидер</span>
+          <strong>{leader?.displayName ?? 'Ставок ещё нет'}</strong>
+        </div>
+      </div>
+
+      <div className={styles.dealDecisionDetails}>
+        {details.map(detail => (
+          <div className={styles.dealDecisionRow} key={detail.label}>
+            <span>{detail.label}</span>
+            <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
+              {detail.value}
+            </strong>
+          </div>
+        ))}
+        {cannotAfford && canAct && (
+          <div className={styles.dealDecisionWarning}>
+            Нужно {formatMoney(totalRequired)}: {formatMoney(purchaseCost)} за сделку и {formatMoney(normalizedBid)} ставка.
+          </div>
+        )}
+      </div>
+
+      <div className={styles.auctionParticipants}>
+        {auction.participantPlayerIds.map(playerId => {
+          const player = players.find(item => item.playerId === playerId)
+          const status = playerId === auction.currentBidderPlayerId
+            ? 'Лидер'
+            : auction.passedPlayerIds.includes(playerId)
+              ? 'Пас'
+              : 'Участвует'
+
+          return (
+            <span key={playerId} className={playerId === auction.currentBidderPlayerId ? styles.auctionLeader : undefined}>
+              {player?.displayName ?? 'Игрок'} · {status}
+            </span>
+          )
+        })}
+      </div>
+
+      <div className={styles.dealDecisionSpacer} />
+
+      <div className={styles.dealDecisionActions}>
+        {canAct ? (
+          <>
+            <label className={styles.auctionBidInput}>
+              <span>Ваша ставка</span>
+              <input
+                type="number"
+                min={minimumBid}
+                value={bidValue}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value)
+                  if (!Number.isFinite(nextValue)) return
+                  setBidValue(Math.max(0, Math.floor(nextValue)))
+                }}
+                disabled={disabled}
+              />
+            </label>
+            <button className={styles.dealDecisionButton} onClick={() => onBid(normalizedBid)} disabled={disabled || !canBid}>
+              Поставить {formatMoney(normalizedBid)}
+            </button>
+            <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={onPass} disabled={disabled || !canPass}>
+              {isLeader ? 'Ожидаем пас остальных' : 'Пас'}
+            </button>
+          </>
+        ) : (
+          <div className={styles.auctionWaiting}>
+            {isSeller
+              ? 'Вы выставили сделку. Ждём ставки или пас участников.'
+              : hasPassed
+                ? 'Вы спасовали в этом аукционе.'
+                : 'Вы наблюдаете за аукционом.'}
+          </div>
+        )}
+        {(isSeller || isLeader) && (
+          <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={onComplete} disabled={disabled || !readyToComplete}>
+            Завершить аукцион
+          </button>
+        )}
       </div>
     </div>
   )
@@ -800,17 +1258,13 @@ function PlayersPanel({
   players,
   currentPlayerId,
   selectedPlayerId,
-  selectedPlayer,
   dreams,
-  turnCount,
   onSelectPlayer,
 }: {
   players: any[]
   currentPlayerId: string
   selectedPlayerId: string
-  selectedPlayer: any | null
   dreams: any[]
-  turnCount: number
   onSelectPlayer: (playerId: string) => void
 }) {
   if (players.length === 0) {
@@ -822,16 +1276,15 @@ function PlayersPanel({
     )
   }
 
-  const selectedDream = selectedPlayer
-    ? dreams.find(dream => dream.id === selectedPlayer.dreamId)
-    : null
-  const selectedFinancials = selectedPlayer ? getPlayerFinancials(selectedPlayer) : null
-
   return (
     <div className={styles.playersPanel}>
       <div className={styles.playersList}>
         {players.map(player => {
           const financials = getPlayerFinancials(player)
+          const dream = dreams.find(item => item.id === player.dreamId)
+          const target = Math.max(1, player.expenses ?? 0)
+          const remaining = Math.max(0, target - financials.passiveIncome)
+          const progressPct = Math.min(financials.passiveIncome / target, 1)
           const isSelected = player.playerId === selectedPlayerId
           const isCurrent = player.playerId === currentPlayerId
 
@@ -839,108 +1292,51 @@ function PlayersPanel({
             <button
               key={player.playerId}
               type="button"
-              className={isSelected ? styles.playerRowActive : styles.playerRow}
+              className={isSelected ? styles.playerCardActive : styles.playerCard}
               onClick={() => onSelectPlayer(player.playerId)}
             >
-              <span className={styles.playerAvatar} style={{ background: player.color }} />
-              <span className={styles.playerMain}>
-                <strong>{player.displayName || 'Игрок'}</strong>
-                <span>{roleData[player.roleId]?.name ?? player.roleId} · {player.isOnBigCircle ? 'Большой круг' : 'Малый круг'}</span>
+              <span className={styles.playerCardHeader}>
+                <span className={styles.playerCardIdentity}>
+                  <span className={styles.playerNameLine}>
+                    <strong style={{ color: player.color }}>{player.displayName || 'Игрок'}</strong>
+                    {isCurrent && <em style={{ background: player.color }}>●</em>}
+                  </span>
+                  <span>{roleData[player.roleId]?.name ?? player.roleId} › {player.isOnBigCircle ? 'Большой круг' : 'Малый круг'}</span>
+                  <span>Зарплата <b>{formatMoney(financials.salary)}</b></span>
+                </span>
+                <span className={styles.playerCash}>
+                  <strong>{formatMoney(player.cash ?? 0)}</strong>
+                  <span>Налички</span>
+                </span>
               </span>
-              <span className={styles.playerMeta}>
-                {isCurrent ? 'ходит' : formatMoney(financials.cashFlow)}
+
+              <span className={styles.playerProgressBlock}>
+                <span>До выхода на большой круг</span>
+                <span className={styles.playerProgressTrack}>
+                  <span style={{ width: `${progressPct * 100}%`, background: player.color }} />
+                  <strong>{formatMoney(remaining)}</strong>
+                </span>
+                {dream && <em>Мечта: {dream.title}</em>}
+              </span>
+
+              <span className={styles.playerMiniStats}>
+                <span>
+                  <small>Пассив</small>
+                  <b>{formatMoney(financials.passiveIncome)}</b>
+                </span>
+                <span>
+                  <small>Денеж. поток</small>
+                  <b>{formatMoney(financials.cashFlow)}</b>
+                </span>
+                <span>
+                  <small>Расходы</small>
+                  <b>{formatDelta(-(player.expenses ?? 0))}</b>
+                </span>
               </span>
             </button>
           )
         })}
       </div>
-
-      {selectedPlayer && selectedFinancials && (
-        <div className={styles.playerSituation}>
-          <div className={styles.playerSituationHeader}>
-            <div>
-              <span className={styles.panelEyebrow}>Ситуация игрока</span>
-              <h3>{selectedPlayer.displayName || 'Игрок'}</h3>
-            </div>
-            <span className={styles.playerRound}>Ход {turnCount}</span>
-          </div>
-
-          <div className={styles.playerDreamBox}>
-            <span>Мечта</span>
-            <strong>{selectedDream?.title ?? 'Не выбрана'}</strong>
-            {selectedDream && <em>{formatMoney(selectedDream.price)}</em>}
-          </div>
-
-          <div className={styles.playerStatsGrid}>
-            <StatTile label="Наличные" value={formatMoney(selectedPlayer.cash)} tone="cash" />
-            <StatTile label="Зарплата" value={formatMoney(selectedFinancials.salary)} tone="salary" />
-            <StatTile label="Пассив" value={formatMoney(selectedFinancials.passiveIncome)} tone="passive" />
-            <StatTile label="Расходы" value={formatMoney(selectedPlayer.expenses)} tone="expense" />
-            <StatTile label="Поток" value={formatMoney(selectedFinancials.cashFlow)} tone="flow" />
-            <StatTile label="Активы" value={`${selectedPlayer.assets?.length ?? 0}`} tone="asset" />
-          </div>
-
-          <PlayerItemsList
-            title="Активы"
-            emptyText="Активов пока нет"
-            items={selectedPlayer.assets ?? []}
-            valueLabel="Доход"
-            getValue={item => `+${formatMoney(item.cashFlow ?? 0)}`}
-          />
-
-          <PlayerItemsList
-            title="Пассивы"
-            emptyText="Пассивов пока нет"
-            items={selectedPlayer.liabilities ?? []}
-            valueLabel="Платёж"
-            getValue={item => `-${formatMoney(item.payment ?? 0)}`}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StatTile({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <div className={styles.statTile}>
-      <span>{label}</span>
-      <strong className={styles[`statTone_${tone}` as keyof typeof styles]}>{value}</strong>
-    </div>
-  )
-}
-
-function PlayerItemsList({
-  title,
-  emptyText,
-  items,
-  valueLabel,
-  getValue,
-}: {
-  title: string
-  emptyText: string
-  items: any[]
-  valueLabel: string
-  getValue: (item: any) => string
-}) {
-  return (
-    <div className={styles.playerItemsBlock}>
-      <div className={styles.playerItemsHeader}>
-        <strong>{title}</strong>
-        <span>{items.length}</span>
-      </div>
-      {items.length === 0 ? (
-        <p>{emptyText}</p>
-      ) : (
-        <div className={styles.playerItemsList}>
-          {items.map((item, index) => (
-            <div key={item.id ?? `${title}-${index}`} className={styles.playerItem}>
-              <span>{item.title || title}</span>
-              <em>{valueLabel}: {getValue(item)}</em>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -995,71 +1391,66 @@ function buildAssetCategories(assets: any[], liabilities: any[]) {
   return categories
 }
 
-function AssetManagementPanel({
-  assets,
-  liabilities,
-  cash,
-  disabled,
-  onSellAsset,
-  onPayLiability,
-}: {
-  assets: any[]
-  liabilities: any[]
-  cash: number
-  disabled: boolean
-  onSellAsset: (assetId: string) => void
-  onPayLiability: (liabilityId: string) => void
-}) {
-  const payableLiabilities = liabilities.filter(item => (item.balance ?? 0) > 0)
+function getEventTone(type: string): 'deal' | 'market' | 'negative' | 'salary' | 'misc' | 'dream' {
+  switch (type) {
+    case 'deal':
+      return 'deal'
+    case 'market':
+    case 'shop':
+      return 'market'
+    case 'negative':
+    case 'skip':
+      return 'negative'
+    case 'salary':
+    case 'payday':
+      return 'salary'
+    case 'dream':
+      return 'dream'
+    case 'child':
+    case 'charity':
+    case 'other':
+    default:
+      return 'misc'
+  }
+}
 
-  if (assets.length === 0 && payableLiabilities.length === 0) return null
+function isStockOption(option: DecisionOption): boolean {
+  return option.dealType.toLowerCase().includes('акци')
+}
 
-  return (
-    <div className={styles.assetPanel}>
-      <div className={styles.assetPanelHeader}>
-        <strong>Управление</strong>
-        <span>Продажа 80% / погашение полностью</span>
-      </div>
+function getFallbackEventTitle(type: string, label: string): string {
+  if (label) return label
 
-      {assets.length > 0 && (
-        <div className={styles.assetActionGroup}>
-          {assets.map(asset => {
-            const salePrice = Math.round((asset.cost ?? 0) * 0.8)
-            return (
-              <button
-                key={asset.id}
-                className={styles.assetAction}
-                disabled={disabled}
-                onClick={() => onSellAsset(asset.id)}
-              >
-                <span>Продать {asset.title || 'актив'}</span>
-                <strong>+{formatMoney(salePrice)}</strong>
-              </button>
-            )
-          })}
-        </div>
-      )}
+  switch (type) {
+    case 'salary':
+    case 'payday':
+      return 'Зарплата'
+    case 'deal':
+      return 'Сделка'
+    case 'market':
+    case 'shop':
+      return 'Рынок'
+    case 'negative':
+      return 'Неприятность'
+    case 'child':
+      return 'Ребёнок'
+    case 'charity':
+      return 'Благотворительность'
+    case 'dream':
+      return 'Мечта'
+    case 'skip':
+      return 'Пропуск хода'
+    case 'other':
+    default:
+      return 'Всякая всячина'
+  }
+}
 
-      {payableLiabilities.length > 0 && (
-        <div className={styles.assetActionGroup}>
-          {payableLiabilities.map(liability => {
-            const canPay = cash >= (liability.balance ?? 0)
-            return (
-              <button
-                key={liability.id}
-                className={styles.assetAction}
-                disabled={disabled || !canPay}
-                onClick={() => onPayLiability(liability.id)}
-              >
-                <span>Погасить {liability.title || 'кредит'}</span>
-                <strong>-{formatMoney(liability.balance ?? 0)}</strong>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+function getFallbackEventMessage(result: DiceRollResult): string {
+  if (result.total <= 0) return 'Игрок пропускает ход.'
+  if ((result.cashChange ?? 0) !== 0) return `Изменение наличных: ${formatDelta(result.cashChange ?? 0)}.`
+  if (result.requiresDecision || result.pendingDecision) return 'Событие требует решения. Выберите вариант действия.'
+  return 'Игрок перемещается на выпавшее поле и применяет событие карточки.'
 }
 
 function getSectorColor(type: string): string {
@@ -1090,9 +1481,18 @@ function getStatusMessage(state: GameState, playerId: string): string {
   if (state.phase === 'gameOver') return 'Игра завершена'
   if (state.phase === 'dreamSelection') return 'Выбор мечт'
   if (state.phase === 'awaitingDecision') {
+    if (state.pendingDecision?.decisionType === 'dealPublicOffer') return 'Сделка доступна всем'
     if (state.pendingDecision?.playerId === playerId) return 'Выберите действие'
     const player = state.players.find(p => p.playerId === state.pendingDecision?.playerId)
     return player ? `Решение принимает ${player.displayName}` : 'Ожидание решения'
+  }
+  if (state.phase === 'awaitingAuction') {
+    const auction = state.pendingAuction
+    if (!auction) return 'Идёт аукцион'
+    if (auction.sellerPlayerId === playerId) return 'Ваша сделка на аукционе'
+    if (auction.currentBidderPlayerId === playerId) return 'Вы лидируете в аукционе'
+    if (auction.participantPlayerIds.includes(playerId) && !auction.passedPlayerIds.includes(playerId)) return 'Сделайте ставку или пас'
+    return 'Идёт аукцион'
   }
   if (state.currentPlayerId === playerId) return 'Ваш ход'
 

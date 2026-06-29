@@ -4,11 +4,11 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 19px;
   box-sizing: border-box;
-  padding: 10px 4px 12px;
+  padding: 16px 8px 12px 4px;
   overflow-x: hidden;
-  border-radius: 8px;
+  border-radius: 24px;
   background: #fff;
   color: rgb(28, 28, 30);
   font-family: 'Montserrat Alternates', sans-serif;
@@ -23,8 +23,8 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 6px;
+  gap: 12px;
+  padding: 0 16px;
 }
 
 .avatar,
@@ -61,13 +61,14 @@
 .statsSection {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  padding: 0 4px;
 }
 
 .miniCards,
 .largeCards {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .miniCards {
@@ -76,22 +77,51 @@
 
 .largeCards {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.salaryClaimButton {
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 18px;
+  padding: 8px 14px;
+  background: rgba(52, 199, 89, 0.18);
+  color: rgb(48, 221, 103);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.salaryClaimButton:disabled {
+  cursor: default;
+  opacity: 0.46;
 }
 
 .moneyCard {
   min-width: 0;
-  min-height: 52px;
+  min-height: 57px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 4px;
-  padding: 7px 9px;
-  border-radius: 11px;
-  background: #f2f2f4;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
+    rgb(244, 244, 245);
+  box-shadow:
+    inset 0.5px 0.5px 0 #1a1a1a,
+    inset -0.5px -0.5px 0 #1a1a1a,
+    inset 2px 2px 0.5px -1px rgba(0, 0, 0, 0.4),
+    inset -2px -2px 0.5px -1px rgba(0, 0, 0, 0.4);
 }
 
 .moneyCardLarge {
-  min-height: 60px;
+  min-height: 59px;
+  gap: 6px;
 }
 
 .moneyCard_passive {
@@ -105,9 +135,9 @@
 .moneyLabel {
   overflow: hidden;
   color: rgba(60, 60, 67, 0.52);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.1;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -119,9 +149,9 @@
 .moneyAmount {
   display: block;
   overflow: hidden;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.15;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 21px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -153,7 +183,8 @@
 
 .statusSection {
   display: grid;
-  gap: 5px;
+  gap: 4px;
+  padding: 0 4px;
 }
 
 .statusChip {
@@ -162,8 +193,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 5px 10px;
-  border-radius: 999px;
+  padding: 5px 12px;
+  border-radius: 11px;
   color: #fff;
 }
 
@@ -182,26 +213,26 @@
 }
 
 .financialSection {
-  border-top: 1px solid rgba(60, 60, 67, 0.18);
+  border-top: 0;
 }
 
 .financialSection:last-child {
-  border-bottom: 1px solid rgba(60, 60, 67, 0.18);
+  border-bottom: 0;
 }
 
 .sectionHeader {
   width: 100%;
-  min-height: 34px;
+  min-height: 29px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 4px;
+  gap: 4px;
+  padding: 4px 16px 0;
   border: 0;
   background: transparent;
-  color: rgba(60, 60, 67, 0.76);
+  color: rgb(0, 0, 0);
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
@@ -212,7 +243,7 @@
   height: 14px;
   align-items: center;
   justify-content: center;
-  color: rgba(60, 60, 67, 0.54);
+  color: rgba(60, 60, 67, 0.65);
   transition: transform 0.2s;
 }
 
@@ -223,7 +254,7 @@
 .sectionBody {
   display: grid;
   gap: 12px;
-  padding: 0 4px 14px;
+  padding: 8px 16px 14px;
 }
 
 .totalStrip {
@@ -305,7 +336,7 @@
 }
 
 .financeTable {
-  grid-template-columns: minmax(70px, 1.35fr) minmax(54px, 0.78fr) minmax(54px, 0.78fr) minmax(34px, 0.45fr) minmax(58px, 0.7fr);
+  grid-template-columns: minmax(82px, 1.45fr) minmax(58px, 0.8fr) minmax(58px, 0.8fr) minmax(40px, 0.45fr);
 }
 
 .financeTableLiability {
@@ -376,6 +407,60 @@
   color: rgba(60, 60, 67, 0.58);
   font-size: 12px;
   font-weight: 700;
+}
+
+.creditInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 12px 0 16px;
+}
+
+.creditInfo div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.creditInfo span {
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.creditInfo strong {
+  color: rgb(0, 0, 0);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.creditInfo em {
+  color: rgb(255, 59, 48);
+  font-style: normal;
+}
+
+.creditButton {
+  min-height: 32px;
+  border: 0;
+  border-radius: 26px;
+  padding: 8px 16px;
+  background: rgba(255, 149, 0, 0.08);
+  color: rgb(255, 149, 0);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.creditButton:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 @media (max-width: 480px) {
