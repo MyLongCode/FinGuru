@@ -42,6 +42,7 @@ interface GameBoardProps {
   lastRollLabel?: string
   rollButtonLabel?: string
   activeTab?: 'small' | 'big'
+  visibleCircle?: 'small' | 'big'
   onTabChange?: (tab: 'small' | 'big') => void
   onRollDice?: () => void
 }
@@ -237,6 +238,7 @@ export default function GameBoard({
   lastRollLabel,
   rollButtonLabel,
   activeTab = 'small',
+  visibleCircle,
   onTabChange,
   onRollDice,
 }: GameBoardProps) {
@@ -252,11 +254,12 @@ export default function GameBoard({
     mql.addEventListener('change', update)
     return () => mql.removeEventListener('change', update)
   }, [])
-  const tab = onTabChange ? activeTab : internalTab
+  const tab = visibleCircle ?? (onTabChange ? activeTab : internalTab)
   const handleTabChange = useCallback((t: 'small' | 'big') => {
+    if (visibleCircle && visibleCircle !== t) return
     if (onTabChange) onTabChange(t)
     else setInternalTab(t)
-  }, [onTabChange])
+  }, [onTabChange, visibleCircle])
   const outerScale = tab === 'big' ? OUTER_SECTOR_RADIUS_BIG / OUTER_SECTOR_RADIUS_FULL : 1
   const outerSectorRadiusFull = tab === 'small' ? OUTER_SECTOR_RADIUS_FULL * 2 : OUTER_SECTOR_RADIUS_FULL
   const outerRingInner = outerSectorRadiusFull + 10
@@ -391,26 +394,28 @@ export default function GameBoard({
     <div className={styles.container}>
       <div className={styles.background} />
       <div className={styles.content}>
-        <div className={styles.tabs}>
-          <button
-            className={`${styles.tab} ${tab === 'small' ? styles.tabActive : ''}`}
-            onClick={() => handleTabChange('small')}
-          >
-            Малый круг
-          </button>
-          <button
-            className={`${styles.tab} ${tab === 'big' ? styles.tabActive : ''}`}
-            onClick={() => handleTabChange('big')}
-          >
-            Большой круг
-          </button>
-        </div>
+        {!visibleCircle && (
+          <div className={styles.tabs}>
+            <button
+              className={`${styles.tab} ${tab === 'small' ? styles.tabActive : ''}`}
+              onClick={() => handleTabChange('small')}
+            >
+              Малый круг
+            </button>
+            <button
+              className={`${styles.tab} ${tab === 'big' ? styles.tabActive : ''}`}
+              onClick={() => handleTabChange('big')}
+            >
+              Большой круг
+            </button>
+          </div>
+        )}
 
         <div className={`${styles.topBarWrapper} ${tab === 'big' ? styles.topBarWrapperVisible : ''}`}>
           <TopBar sectors={topBarSectors} players={topBarPlayers} dreams={topBarDreams} onActiveIndexChange={setActiveIndex} />
         </div>
 
-        <div className={styles.wheelWrapper} style={{transform: (internalTab === 'big' ? 'translateY(13%)' : '')}}>
+        <div className={styles.wheelWrapper}>
           <div className={styles.spinLayer}>
           <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className={styles.wheelSvg}>
             <defs>

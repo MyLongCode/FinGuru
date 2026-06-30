@@ -36,8 +36,9 @@ export interface DashboardProps {
   playerRole: string
   moveNumber: number
   stats: DashboardStats
-  goalTarget: number
-  progressAmount: number
+  bigCircleTarget: number
+  passiveIncomeProgress: number
+  bigCircleRemaining: number
   statuses: DashboardStatus[]
   assetCategories?: AssetCategory[]
   assets?: FinGuruAsset[]
@@ -261,8 +262,9 @@ export default function Dashboard({
   playerRole,
   moveNumber,
   stats,
-  goalTarget,
-  progressAmount,
+  bigCircleTarget,
+  passiveIncomeProgress,
+  bigCircleRemaining,
   statuses,
   assets = [],
   liabilities = [],
@@ -325,7 +327,13 @@ export default function Dashboard({
         </div>
       )}
 
-      {!assetsOnly && <ProgressBar goalAmount={goalTarget} progressAmount={progressAmount} />}
+      {!assetsOnly && (
+        <ProgressBar
+          bigCircleTarget={bigCircleTarget}
+          passiveIncomeProgress={passiveIncomeProgress}
+          bigCircleRemaining={bigCircleRemaining}
+        />
+      )}
 
       {!assetsOnly && statuses.length > 0 && (
         <div className={styles.statusSection}>

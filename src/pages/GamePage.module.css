@@ -1638,6 +1638,13 @@
     display: block;
   }
 
+  .mobileView_small .boardColumn,
+  .mobileView_big .boardColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .boardColumn {
     height: min(724px, calc(100dvh - 126px));
     min-height: 620px;
@@ -1647,16 +1654,26 @@
   }
 
   .turnPanel {
-    top: 16px;
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
     width: calc(100% - 32px);
     min-width: 0;
     min-height: 76px;
+    flex: 0 0 auto;
+    margin: 16px auto 0;
     justify-content: center;
     gap: 6px;
     padding: 12px 16px;
     border-radius: 22px;
     background: rgba(255, 255, 255, 0.84);
     backdrop-filter: blur(14px);
+  }
+
+  .boardColumn > :not(.turnPanel) {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .turnEyebrow,
@@ -1689,7 +1706,7 @@
     left: max(8px, calc((100vw - 430px) / 2 + 8px));
     z-index: 70;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     padding: 4px;
     border-radius: 999px;
     background: rgba(247, 247, 247, 0.86);

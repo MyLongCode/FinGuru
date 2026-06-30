@@ -34,7 +34,6 @@ import {
 import styles from './GamePage.module.css'
 
 const MIN_DICE_ANIMATION_MS = 900
-const VICTORY_CASH_FLOW_TARGET = 50000
 
 interface EventCardData {
   id: string
@@ -324,9 +323,11 @@ export default function GamePage() {
 
   useEffect(() => {
     const me = gameState?.players.find(p => p.playerId === sdkPlayerId)
-    if (me?.isOnBigCircle) {
-      setActiveTab('big')
-    }
+    if (!me) return
+
+    const nextCircle = me.isOnBigCircle ? 'big' : 'small'
+    setActiveTab(nextCircle)
+    setMobileView(view => (view === 'small' || view === 'big') ? nextCircle : view)
   }, [gameState, sdkPlayerId])
 
   const handleRollDice = useCallback(() => {
@@ -440,7 +441,7 @@ export default function GamePage() {
     roleId: roleName ?? '',
     color: myColor,
     dreamId: null,
-    cash: 0,
+    cash: getStartingCapital(data.financialData.assets),
     income: data.financialData.income.total,
     expenses: data.financialData.expenses.total,
     position: 0,
@@ -498,7 +499,21 @@ export default function GamePage() {
   const myPendingDecision = pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible
     ? pendingDecision
     : null
-  const readOnlyEventCard = activeEventCard && !myPendingDecision && !pendingAuction ? activeEventCard : null
+  const readOnlyPendingDecision = pendingDecision && pendingDecision.playerId !== sdkPlayerId && !isPublicOfferVisible
+    ? pendingDecision
+    : null
+  const readOnlyPendingPlayer = readOnlyPendingDecision
+    ? gamePlayers.find(player => player.playerId === readOnlyPendingDecision.playerId)
+    : undefined
+  const readOnlyDecisionOption = readOnlyPendingDecision?.decisionOptions?.find(option => option.action === 'buyDeal' || option.action === 'acceptDealOffer')
+  const isReadOnlyDealCard = Boolean(readOnlyDecisionOption && (
+    readOnlyPendingDecision?.decisionType === 'dealCard'
+    || readOnlyPendingDecision?.decisionType === 'dealOffer'
+  ))
+  const readOnlyPendingEventCard = readOnlyPendingDecision && !isReadOnlyDealCard
+    ? buildPendingDecisionEventCard(readOnlyPendingDecision, activeEventCard, readOnlyPendingPlayer)
+    : null
+  const readOnlyEventCard = activeEventCard && !myPendingDecision && !readOnlyPendingDecision && !pendingAuction ? activeEventCard : null
   const isChoosingDealDeck = myPendingDecision?.decisionOptions?.some(option => option.action === 'chooseDealDeck') ?? false
   const isDealCardDecision = myPendingDecision?.decisionType === 'dealCard'
     || myPendingDecision?.decisionType === 'dealOffer'
@@ -516,6 +531,9 @@ export default function GamePage() {
   const salaryPayoutMode = gameState?.settings?.salaryPayoutMode ?? 'automatic'
   const activeDiceCount = charityDiceTurnsRemaining > 0 ? 3 : configuredDiceCount
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
+  const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
+  const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
+  const visibleCircle = dashboardPlayer.isOnBigCircle ? 'big' : 'small'
   const statuses = [
     ...(isFinanciallyFree ? [{
       label: dashboardPlayer.isOnBigCircle ? 'Большой круг' : 'Финансовая свобода',
@@ -565,10 +583,11 @@ export default function GamePage() {
           : 'Ожидание'
 
   const handleMobileViewChange = useCallback((view: 'profile' | 'small' | 'big' | 'players' | 'history') => {
-    setMobileView(view)
-    if (view === 'small' || view === 'big') setActiveTab(view)
-    if (view === 'players' || view === 'history') setRightPanelTab(view)
-  }, [])
+    const nextView = view === 'small' || view === 'big' ? visibleCircle : view
+    setMobileView(nextView)
+    if (nextView === 'small' || nextView === 'big') setActiveTab(visibleCircle)
+    if (nextView === 'players' || nextView === 'history') setRightPanelTab(nextView)
+  }, [visibleCircle])
 
   return (
     <div className={`${styles.gamePage} ${styles[`mobileView_${mobileView}`]}`}>
@@ -584,8 +603,9 @@ export default function GamePage() {
             passiveIncome,
             cashFlow,
           }}
-          goalTarget={VICTORY_CASH_FLOW_TARGET}
-          progressAmount={Math.max(0, cashFlow)}
+          bigCircleTarget={bigCircleTarget}
+          passiveIncomeProgress={passiveIncome}
+          bigCircleRemaining={bigCircleRemaining}
           assetsOnly={dashboardPlayer.isOnBigCircle}
           statuses={statuses}
           assets={dashboardPlayer.assets ?? []}
@@ -615,9 +635,9 @@ export default function GamePage() {
         </div>
 
         <GameBoard
-          players={boardPlayers}
-          bigSectorPlayers={bigSectorPlayers}
-          bigSectorDreams={bigSectorDreams}
+          players={visibleCircle === 'small' ? boardPlayers : []}
+          bigSectorPlayers={visibleCircle === 'big' ? bigSectorPlayers : []}
+          bigSectorDreams={visibleCircle === 'big' ? bigSectorDreams : []}
           currentPlayerId={isMyTurn ? sdkPlayerId : undefined}
           isRolling={isRolling}
           diceCount={activeDiceCount}
@@ -625,6 +645,7 @@ export default function GamePage() {
           lastRollLabel={lastRollLabel}
           rollButtonLabel={rollButtonLabel}
           activeTab={activeTab}
+          visibleCircle={visibleCircle}
           onTabChange={setActiveTab}
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
           // @ts-ignore
@@ -679,22 +700,25 @@ export default function GamePage() {
           <span className={styles.mobileTabIconProfile} />
           <em>Профиль</em>
         </button>
-        <button
-          className={mobileView === 'big' ? styles.mobileTabActive : styles.mobileTab}
-          type="button"
-          onClick={() => handleMobileViewChange('big')}
-        >
-          <span className={styles.mobileTabIconCircle} />
-          <em>Бол. круг</em>
-        </button>
-        <button
-          className={mobileView === 'small' ? styles.mobileTabActive : styles.mobileTab}
-          type="button"
-          onClick={() => handleMobileViewChange('small')}
-        >
-          <span className={styles.mobileTabIconCircleSmall} />
-          <em>Мал. круг</em>
-        </button>
+        {visibleCircle === 'big' ? (
+          <button
+            className={mobileView === 'big' ? styles.mobileTabActive : styles.mobileTab}
+            type="button"
+            onClick={() => handleMobileViewChange('big')}
+          >
+            <span className={styles.mobileTabIconCircle} />
+            <em>Бол. круг</em>
+          </button>
+        ) : (
+          <button
+            className={mobileView === 'small' ? styles.mobileTabActive : styles.mobileTab}
+            type="button"
+            onClick={() => handleMobileViewChange('small')}
+          >
+            <span className={styles.mobileTabIconCircleSmall} />
+            <em>Мал. круг</em>
+          </button>
+        )}
         <button
           className={mobileView === 'players' ? styles.mobileTabActive : styles.mobileTab}
           type="button"
@@ -719,6 +743,27 @@ export default function GamePage() {
             card={readOnlyEventCard}
             onClose={() => setActiveEventCard(null)}
           />
+        </div>
+      )}
+
+      {readOnlyPendingDecision && (
+        <div className={styles.actionOverlay}>
+          <div className={`${styles.actionModal} ${styles.dealActionModal}`}>
+            {isReadOnlyDealCard && readOnlyDecisionOption ? (
+              <DealDecisionCard
+                option={readOnlyDecisionOption}
+                cash={dashboardPlayer.cash}
+                players={gamePlayers}
+                currentPlayerId={sdkPlayerId}
+                isOffer={readOnlyPendingDecision.decisionType === 'dealOffer'}
+                isPublicOffer={false}
+                disabled
+                readOnly
+              />
+            ) : readOnlyPendingEventCard ? (
+              <EventCard card={readOnlyPendingEventCard} hideActions />
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -811,10 +856,12 @@ export default function GamePage() {
 function EventCard({
   card,
   actions,
+  hideActions = false,
   onClose,
 }: {
   card: EventCardData
   actions?: ReactNode
+  hideActions?: boolean
   onClose?: () => void
 }) {
   const toneClass = styles[`eventCard_${getEventTone(card.sectorType)}`]
@@ -872,7 +919,7 @@ function EventCard({
         )}
       </div>
 
-      {actions ? (
+      {hideActions ? null : actions ? (
         <div className={styles.eventCardActions}>{actions}</div>
       ) : (
         <div className={styles.eventCardActions}>
@@ -941,6 +988,7 @@ function DealDecisionCard({
   isOffer,
   isPublicOffer,
   disabled,
+  readOnly = false,
   onAccept,
   onSell,
   onAuction,
@@ -953,10 +1001,11 @@ function DealDecisionCard({
   isOffer: boolean
   isPublicOffer: boolean
   disabled: boolean
-  onAccept: (quantity?: number) => void
-  onSell: (offerPrice: number) => void
-  onAuction: () => void
-  onSkip: () => void
+  readOnly?: boolean
+  onAccept?: (quantity?: number) => void
+  onSell?: (offerPrice: number) => void
+  onAuction?: () => void
+  onSkip?: () => void
 }) {
   const offerPrice = option.offerPrice ?? 0
   const isStockDeal = isStockOption(option)
@@ -1010,7 +1059,7 @@ function DealDecisionCard({
               </strong>
             </div>
           ))}
-          {cannotAfford && (
+          {!readOnly && cannotAfford && (
             <div className={styles.dealDecisionWarning}>
               Не хватает {formatMoney(totalCost - cash)}
             </div>
@@ -1023,6 +1072,7 @@ function DealDecisionCard({
         </div>
       </div>
 
+      {!readOnly && (
       <div className={styles.dealDecisionActions}>
         {isStockDeal && canAcceptOffer && (
           <div className={styles.stockQuantityControl}>
@@ -1061,7 +1111,7 @@ function DealDecisionCard({
             </div>
           </div>
         )}
-        <button className={styles.dealDecisionButton} onClick={() => onAccept(isStockDeal ? purchaseQuantity : undefined)} disabled={disabled || cannotAfford || !canAcceptOffer}>
+        <button className={styles.dealDecisionButton} onClick={() => onAccept?.(isStockDeal ? purchaseQuantity : undefined)} disabled={disabled || cannotAfford || !canAcceptOffer}>
           {isOwnPublicOffer ? 'Ожидаем покупателя' : isOffer ? 'Забрать сделку' : 'Принять'}
         </button>
         {canTrade && (
@@ -1082,14 +1132,14 @@ function DealDecisionCard({
             </label>
             <button
               className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
-              onClick={() => onSell(salePrice)}
+              onClick={() => onSell?.(salePrice)}
               disabled={disabled}
             >
               Выставить всем
             </button>
             <button
               className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
-              onClick={onAuction}
+              onClick={() => onAuction?.()}
               disabled={disabled}
             >
               Аукцион
@@ -1097,11 +1147,12 @@ function DealDecisionCard({
           </div>
         )}
         {!isPublicOffer && (
-          <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={onSkip} disabled={disabled}>
+          <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={() => onSkip?.()} disabled={disabled}>
             {isOffer ? 'Отказаться' : 'Пропустить'}
           </button>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -1284,7 +1335,7 @@ function PlayersPanel({
         {players.map(player => {
           const financials = getPlayerFinancials(player)
           const dream = dreams.find(item => item.id === player.dreamId)
-          const target = Math.max(1, player.expenses ?? 0)
+          const target = Math.max(1, (player.expenses ?? 0) + 1)
           const remaining = Math.max(0, target - financials.passiveIncome)
           const progressPct = Math.min(financials.passiveIncome / target, 1)
           const isSelected = player.playerId === selectedPlayerId
@@ -1353,6 +1404,47 @@ function getPlayerFinancials(player: any) {
     passiveIncome,
     cashFlow: salary + passiveIncome - (player.expenses ?? 0),
   }
+}
+
+function buildPendingDecisionEventCard(
+  decision: NonNullable<GameState['pendingDecision']>,
+  activeEventCard: EventCardData | null,
+  player?: any,
+): EventCardData {
+  const matchingActiveEventCard = activeEventCard
+    && activeEventCard.sectorType === decision.sectorType
+    && (!player?.displayName || activeEventCard.playerName === player.displayName)
+    ? activeEventCard
+    : null
+  const availableOptions = (decision.decisionOptions ?? [])
+    .filter(option => option.option !== 'skip')
+  const optionDescription = availableOptions
+    .map(option => [option.title, option.description].filter(Boolean).join(' — '))
+    .filter(Boolean)
+    .join('\n\n')
+
+  return {
+    id: `pending:${decision.playerId}:${decision.createdAt ?? ''}`,
+    sectorType: decision.sectorType,
+    sectorLabel: decision.sectorLabel,
+    title: matchingActiveEventCard?.title || availableOptions[0]?.title || getFallbackEventTitle(decision.sectorType, decision.sectorLabel),
+    description: matchingActiveEventCard?.description || optionDescription || 'Событие требует решения другого игрока.',
+    playerName: player?.displayName ?? 'Игрок',
+    playerColor: player?.color ?? '#7776dc',
+    cashChange: matchingActiveEventCard?.cashChange,
+    incomeChange: matchingActiveEventCard?.incomeChange,
+    expensesChange: matchingActiveEventCard?.expensesChange,
+    newCash: matchingActiveEventCard?.newCash,
+  }
+}
+
+function getStartingCapital(assets: Array<{ name: string; amount: number }>): number {
+  const capital = assets.find(item => {
+    const name = item.name.toLowerCase()
+    return name.includes('сбереж') || name.includes('старт')
+  })
+
+  return capital?.amount ?? 0
 }
 
 function buildAssetCategories(assets: any[], liabilities: any[]) {

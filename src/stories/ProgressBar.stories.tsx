@@ -12,21 +12,24 @@ type Story = StoryObj<typeof ProgressBar>
 
 export const Full: Story = {
   args: {
-    goalAmount: 10_400,
-    progressAmount: 10_400,
+    bigCircleTarget: 10_401,
+    passiveIncomeProgress: 10_401,
+    bigCircleRemaining: 0,
   },
 }
 
 export const Partial: Story = {
   args: {
-    goalAmount: 25_000,
-    progressAmount: 8_400,
+    bigCircleTarget: 25_001,
+    passiveIncomeProgress: 8_400,
+    bigCircleRemaining: 16_601,
   },
 }
 
 export const Empty: Story = {
   args: {
-    goalAmount: 10_400,
-    progressAmount: 0,
+    bigCircleTarget: 10_401,
+    passiveIncomeProgress: 0,
+    bigCircleRemaining: 10_401,
   },
 }

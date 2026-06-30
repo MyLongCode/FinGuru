@@ -21,8 +21,9 @@ export const Teacher: Story = {
       passiveIncome: 500,
       cashFlow: 720,
     },
-    goalTarget: 10400,
-    progressAmount: 3000,
+    bigCircleTarget: 10401,
+    passiveIncomeProgress: 3000,
+    bigCircleRemaining: 7401,
     statuses: [
       { label: 'Увольнение', description: '3 хода пропускаешь', bgColor: 'rgb(74, 74, 74)' },
       { label: 'Ребенок x1', description: '720 ₽/мес', bgColor: 'rgb(234, 66, 189)' },
@@ -63,8 +64,9 @@ export const Engineer: Story = {
       passiveIncome: 1200,
       cashFlow: 2500,
     },
-    goalTarget: 15000,
-    progressAmount: 3000,
+    bigCircleTarget: 15001,
+    passiveIncomeProgress: 3000,
+    bigCircleRemaining: 12001,
     statuses: [
       { label: 'Увольнение', description: '2 хода пропускаешь', bgColor: 'rgb(74, 74, 74)' },
       { label: 'Выбор кубика', description: '1 ход', bgColor: 'rgb(50, 173, 230)' },

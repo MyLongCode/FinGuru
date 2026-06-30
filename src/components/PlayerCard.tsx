@@ -8,8 +8,9 @@ interface PlayerCardProps {
   turn: number
   salary: number
   cash: number
-  goalAmount: number
-  progressAmount: number
+  bigCircleTarget: number
+  passiveIncomeProgress: number
+  bigCircleRemaining: number
   passiveIncome: number
   cashFlow: number
   expenses: number
@@ -21,8 +22,9 @@ export default function PlayerCard({
   turn,
   salary,
   cash,
-  goalAmount,
-  progressAmount,
+  bigCircleTarget,
+  passiveIncomeProgress,
+  bigCircleRemaining,
   passiveIncome,
   cashFlow,
   expenses,
@@ -55,7 +57,11 @@ export default function PlayerCard({
         </div>
       </div>
 
-      <ProgressBar goalAmount={goalAmount} progressAmount={progressAmount} />
+      <ProgressBar
+        bigCircleTarget={bigCircleTarget}
+        passiveIncomeProgress={passiveIncomeProgress}
+        bigCircleRemaining={bigCircleRemaining}
+      />
 
       <div className={styles.statsRow}>
         <div className={styles.stat}>

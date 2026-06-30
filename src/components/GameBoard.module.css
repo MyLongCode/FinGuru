@@ -144,7 +144,7 @@
 
 @media (max-width: 768px) {
   .container {
-    min-height: 620px;
+    min-height: 0;
     border-radius: 28px;
     background: rgb(242, 242, 247);
     overflow: hidden;
@@ -166,7 +166,7 @@
 
   .wheelWrapper {
     inset: auto;
-    top: 116px;
+    top: 60px;
     left: 50%;
     width: 620px;
     height: 620px;
@@ -386,11 +386,11 @@
 
 @media (max-width: 420px) {
   .container {
-    min-height: 600px;
+    min-height: 0;
   }
 
   .wheelWrapper {
-    top: 112px;
+    top: 52px;
     width: 600px;
     height: 600px;
   }
