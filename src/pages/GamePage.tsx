@@ -533,6 +533,8 @@ export default function GamePage() {
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
   const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
+  const availableCredit = Math.max(0, cashFlow * 10)
+  const creditPayment = availableCredit > 0 ? Math.ceil(availableCredit * 0.1) : 0
   const visibleCircle = dashboardPlayer.isOnBigCircle ? 'big' : 'small'
   const statuses = [
     ...(isFinanciallyFree ? [{
@@ -759,6 +761,7 @@ export default function GamePage() {
                 isPublicOffer={false}
                 disabled
                 readOnly
+                currentCashFlow={cashFlow}
               />
             ) : readOnlyPendingEventCard ? (
               <EventCard card={readOnlyPendingEventCard} hideActions />
@@ -794,10 +797,14 @@ export default function GamePage() {
                 isOffer={myPendingDecision.decisionType === 'dealOffer' || myPendingDecision.decisionType === 'dealPublicOffer'}
                 isPublicOffer={myPendingDecision.decisionType === 'dealPublicOffer'}
                 disabled={isResolvingDecision}
+                currentCashFlow={cashFlow}
+                availableCredit={availableCredit}
+                creditPayment={creditPayment}
                 onAccept={(quantity) => handleDecisionAction(dealCardOption.option, dealCardOption.action, quantity)}
                 onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
                 onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
                 onSkip={() => handleDecisionAction('skip', 'skip')}
+                onTakeCredit={handleTakeCredit}
               />
             ) : isChoosingDealDeck ? (
               <DealDeckChoice
@@ -989,10 +996,14 @@ function DealDecisionCard({
   isPublicOffer,
   disabled,
   readOnly = false,
+  currentCashFlow = 0,
+  availableCredit = 0,
+  creditPayment = 0,
   onAccept,
   onSell,
   onAuction,
   onSkip,
+  onTakeCredit,
 }: {
   option: DecisionOption
   cash: number
@@ -1002,11 +1013,16 @@ function DealDecisionCard({
   isPublicOffer: boolean
   disabled: boolean
   readOnly?: boolean
+  currentCashFlow?: number
+  availableCredit?: number
+  creditPayment?: number
   onAccept?: (quantity?: number) => void
   onSell?: (offerPrice: number) => void
   onAuction?: () => void
   onSkip?: () => void
+  onTakeCredit?: () => void
 }) {
+  const [activePanel, setActivePanel] = useState<'card' | 'actions'>('card')
   const offerPrice = option.offerPrice ?? 0
   const isStockDeal = isStockOption(option)
   const isOwnPublicOffer = isPublicOffer && option.offeredByPlayerId === currentPlayerId
@@ -1025,133 +1041,230 @@ function DealDecisionCard({
   const canTrade = !isOffer && !isRealEstate && players.some(player => player.playerId !== currentPlayerId)
   const canAcceptOffer = !isOwnPublicOffer
   const cardClass = isBigDeal ? styles.dealDecisionCardBig : styles.dealDecisionCardSmall
-  const meta = [option.cardId, option.dealType, option.ticker].filter(Boolean).join(' · ')
-  const details = [
+  const isActionsPanel = !readOnly && activePanel === 'actions'
+  const dealTitle = isBigDeal ? 'Крупная сделка' : 'Мелкая сделка'
+  const priceLabel = isStockDeal ? 'Итого' : 'Цена'
+  const displayPrice = isStockDeal ? purchaseCost : Math.max(option.assetValue, option.cost)
+  const afterPurchaseCash = cash - totalCost
+  const afterPurchaseCashFlow = currentCashFlow + purchaseCashFlow
+  const interestedBuyers = players
+    .filter(player => player.playerId !== currentPlayerId)
+    .slice(0, 3)
+  const buyLabel = isOwnPublicOffer
+    ? 'Ожидаем покупателя'
+    : isOffer
+      ? `Забрать за ${formatMoney(totalCost)}`
+      : `Купить за ${formatMoney(totalCost)}`
+  const cardDetails = [
     isOffer && offerPrice > 0 ? { label: 'Цена права', value: formatMoney(offerPrice) } : null,
+    option.liabilityValue > 0 ? { label: 'Ипотека', value: formatMoney(option.liabilityValue) } : null,
+    option.cost > 0 ? { label: isStockDeal ? 'Цена за акцию' : option.liabilityValue > 0 ? 'Первый взнос' : 'Взнос', value: formatMoney(isStockDeal ? option.cost : option.cost) } : null,
     isStockDeal ? { label: 'Количество', value: `${purchaseQuantity} шт.` } : null,
-    isStockDeal ? { label: 'Цена за акцию', value: formatMoney(option.cost) } : null,
-    option.assetValue > 0 ? { label: 'Стоимость актива', value: formatMoney(isStockDeal ? purchaseAssetValue : option.assetValue) } : null,
-    option.liabilityValue > 0 ? { label: 'Пассив / ипотека', value: formatMoney(option.liabilityValue) } : null,
     option.cashFlow !== 0 ? { label: 'Денежный поток', value: formatDelta(isStockDeal ? purchaseCashFlow : option.cashFlow), accent: option.cashFlow > 0 ? 'positive' : 'negative' } : null,
     option.roi ? { label: 'ROI', value: option.roi } : null,
     option.saleRange ? { label: 'Диапазон продажи', value: option.saleRange } : null,
   ].filter(Boolean) as Array<{ label: string; value: string; accent?: 'positive' | 'negative' }>
 
   return (
-    <div className={`${styles.dealDecisionCard} ${cardClass}`}>
-      <div className={styles.dealDecisionMain}>
-        <div className={styles.dealDecisionContent}>
-          {meta && <span className={styles.dealDecisionMeta}>{meta}</span>}
-          <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
-          <p className={styles.dealDecisionDescription}>{option.description}</p>
-        </div>
+    <div className={`${styles.dealDecisionCard} ${isActionsPanel ? styles.dealDecisionCardActionView : cardClass}`}>
+      {isActionsPanel ? (
+        <div className={styles.dealActionPanel}>
+          <h2 className={styles.dealActionTitle}>{dealTitle}</h2>
 
-        <div className={styles.dealDecisionDetails}>
-          <div className={styles.dealDecisionHeader}>
-            <span>{isStockDeal ? 'Итого' : 'Взнос'}</span>
-            <strong>{formatMoney(totalCost)}</strong>
-          </div>
-          {details.map(detail => (
-            <div className={styles.dealDecisionRow} key={detail.label}>
-              <span>{detail.label}</span>
-              <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
-                {detail.value}
-              </strong>
+          <section className={styles.dealActionSection}>
+            <h3>После покупки</h3>
+            <div className={styles.dealActionRows}>
+              <div className={styles.dealActionRow}>
+                <span>Баланс</span>
+                <strong>{formatMoney(cash)} → {formatMoney(afterPurchaseCash)}</strong>
+              </div>
+              <div className={styles.dealActionRow}>
+                <span>Денежный поток</span>
+                <strong>{formatMoney(currentCashFlow)} → {formatMoney(afterPurchaseCashFlow)}</strong>
+              </div>
             </div>
-          ))}
-          {!readOnly && cannotAfford && (
-            <div className={styles.dealDecisionWarning}>
-              Не хватает {formatMoney(totalCost - cash)}
-            </div>
+
+            {isStockDeal && canAcceptOffer && (
+              <div className={styles.dealActionQuantity}>
+                <span>{purchaseQuantity} акций</span>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setStockQuantity(value => Math.max(1, value - 1))}
+                    disabled={disabled || purchaseQuantity <= 1}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxStockQuantity}
+                    value={purchaseQuantity}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value)
+                      if (!Number.isFinite(nextValue)) return
+                      setStockQuantity(Math.max(1, Math.min(maxStockQuantity, Math.floor(nextValue))))
+                    }}
+                    disabled={disabled}
+                    aria-label="Количество акций"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setStockQuantity(value => Math.min(maxStockQuantity, value + 1))}
+                    disabled={disabled || purchaseQuantity >= maxStockQuantity}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              className={`${styles.dealActionButton} ${styles.dealActionButtonBuy}`}
+              type="button"
+              onClick={() => onAccept?.(isStockDeal ? purchaseQuantity : undefined)}
+              disabled={disabled || cannotAfford || !canAcceptOffer}
+            >
+              {buyLabel}
+            </button>
+            {cannotAfford && canAcceptOffer && (
+              <p className={styles.dealActionWarning}>Не хватает {formatMoney(totalCost - cash)}</p>
+            )}
+          </section>
+
+          {availableCredit > 0 && (
+            <section className={styles.dealActionSection}>
+              <h3>Доступен кредит {formatMoney(availableCredit)}</h3>
+              <p className={styles.dealCreditHint}>
+                Денежный поток сократится на <strong>{formatMoney(creditPayment)}</strong>
+              </p>
+              <button
+                className={`${styles.dealActionButton} ${styles.dealActionButtonCredit}`}
+                type="button"
+                onClick={() => onTakeCredit?.()}
+                disabled={disabled || !onTakeCredit}
+              >
+                Взять кредит
+              </button>
+            </section>
           )}
-          {!isOffer && isRealEstate && (
-            <div className={styles.dealDecisionNote}>
-              Недвижимость может купить только игрок, которому выпала карта.
-            </div>
+
+          {canTrade && (
+            <>
+              <div className={styles.dealActionDivider} />
+              <section className={styles.dealOffersSection}>
+                <div className={styles.dealOffersHeader}>
+                  <span>Желающие эту карту</span>
+                  <span>Наличные</span>
+                </div>
+                <div className={styles.dealOffersList}>
+                  {interestedBuyers.length > 0 ? interestedBuyers.map(player => (
+                    <div className={styles.dealOfferRow} key={player.playerId}>
+                      <span>{player.displayName || 'Игрок'}</span>
+                      <strong>{formatMoney(player.cash ?? 0)}</strong>
+                    </div>
+                  )) : (
+                    <div className={styles.dealOfferRow}>
+                      <span>Нет игроков</span>
+                      <strong>-</strong>
+                    </div>
+                  )}
+                </div>
+
+                <label className={styles.dealSalePriceInline}>
+                  <span>Цена права</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={salePrice}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value)
+                      if (!Number.isFinite(nextValue)) return
+                      setSalePrice(Math.max(0, Math.floor(nextValue)))
+                    }}
+                    disabled={disabled}
+                  />
+                </label>
+
+                <div className={styles.dealOfferActions}>
+                  <button
+                    type="button"
+                    onClick={() => onSell?.(salePrice)}
+                    disabled={disabled}
+                  >
+                    Выставить цену
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onAuction?.()}
+                    disabled={disabled}
+                  >
+                    Сделать торги
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
+
+          {!isPublicOffer && (
+            <button
+              className={`${styles.dealActionButton} ${styles.dealActionButtonSkip}`}
+              type="button"
+              onClick={() => onSkip?.()}
+              disabled={disabled}
+            >
+              Пропустить
+            </button>
           )}
         </div>
-      </div>
+      ) : (
+        <div className={styles.dealDecisionMain}>
+          <div className={styles.dealDecisionContent}>
+            <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
+            <p className={styles.dealDecisionDescription}>{option.description}</p>
+          </div>
+
+          <div className={styles.dealDecisionDetails}>
+            <div className={styles.dealDecisionHeader}>
+              <span>{priceLabel}</span>
+              <strong>{formatMoney(displayPrice)}</strong>
+            </div>
+            {cardDetails.map(detail => (
+              <div className={styles.dealDecisionRow} key={detail.label}>
+                <span>{detail.label}</span>
+                <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
+                  {detail.value}
+                </strong>
+              </div>
+            ))}
+            {!isOffer && isRealEstate && (
+              <div className={styles.dealDecisionNote}>
+                Недвижимость может купить только игрок, которому выпала карта.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {!readOnly && (
-      <div className={styles.dealDecisionActions}>
-        {isStockDeal && canAcceptOffer && (
-          <div className={styles.stockQuantityControl}>
-            <span>
-              <b>{purchaseQuantity}</b>
-              акций
-            </span>
-            <div>
-              <button
-                type="button"
-                onClick={() => setStockQuantity(value => Math.max(1, value - 1))}
-                disabled={disabled || purchaseQuantity <= 1}
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min={1}
-                max={maxStockQuantity}
-                value={purchaseQuantity}
-                onChange={(event) => {
-                  const nextValue = Number(event.target.value)
-                  if (!Number.isFinite(nextValue)) return
-                  setStockQuantity(Math.max(1, Math.min(maxStockQuantity, Math.floor(nextValue))))
-                }}
-                disabled={disabled}
-                aria-label="Количество акций"
-              />
-              <button
-                type="button"
-                onClick={() => setStockQuantity(value => Math.min(maxStockQuantity, value + 1))}
-                disabled={disabled || purchaseQuantity >= maxStockQuantity}
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
-        <button className={styles.dealDecisionButton} onClick={() => onAccept?.(isStockDeal ? purchaseQuantity : undefined)} disabled={disabled || cannotAfford || !canAcceptOffer}>
-          {isOwnPublicOffer ? 'Ожидаем покупателя' : isOffer ? 'Забрать сделку' : 'Принять'}
-        </button>
-        {canTrade && (
-          <div className={styles.dealTradeControls}>
-            <label className={styles.dealSalePrice}>
-              <span>Цена права</span>
-              <input
-                type="number"
-                min={0}
-                value={salePrice}
-                onChange={(event) => {
-                  const nextValue = Number(event.target.value)
-                  if (!Number.isFinite(nextValue)) return
-                  setSalePrice(Math.max(0, Math.floor(nextValue)))
-                }}
-                disabled={disabled}
-              />
-            </label>
+        <div className={styles.dealDecisionSegmentedWrap}>
+          <div className={`${styles.dealDecisionSegmented} ${isActionsPanel ? styles.dealDecisionSegmentedLight : ''}`}>
             <button
-              className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
-              onClick={() => onSell?.(salePrice)}
-              disabled={disabled}
+              type="button"
+              className={!isActionsPanel ? styles.dealDecisionSegmentActive : undefined}
+              onClick={() => setActivePanel('card')}
             >
-              Выставить всем
+              Карточка
             </button>
             <button
-              className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`}
-              onClick={() => onAuction?.()}
-              disabled={disabled}
+              type="button"
+              className={isActionsPanel ? styles.dealDecisionSegmentActive : undefined}
+              onClick={() => setActivePanel('actions')}
             >
-              Аукцион
+              Действия
             </button>
           </div>
-        )}
-        {!isPublicOffer && (
-          <button className={`${styles.dealDecisionButton} ${styles.dealDecisionButtonGhost}`} onClick={() => onSkip?.()} disabled={disabled}>
-            {isOffer ? 'Отказаться' : 'Пропустить'}
-          </button>
-        )}
-      </div>
+        </div>
       )}
     </div>
   )
