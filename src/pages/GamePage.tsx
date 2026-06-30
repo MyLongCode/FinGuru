@@ -1219,29 +1219,32 @@ function DealDecisionCard({
         </div>
       ) : (
         <div className={styles.dealDecisionMain}>
-          <div className={styles.dealDecisionContent}>
-            <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
-            <p className={styles.dealDecisionDescription}>{option.description}</p>
-          </div>
+          <h2 className={styles.dealDecisionTitle}>{option.title}</h2>
 
-          <div className={styles.dealDecisionDetails}>
-            <div className={styles.dealDecisionHeader}>
-              <span>{priceLabel}</span>
-              <strong>{formatMoney(displayPrice)}</strong>
+          <div className={styles.dealDecisionBody}>
+            <div className={styles.dealDecisionContent}>
+              <p className={styles.dealDecisionDescription}>{option.description}</p>
             </div>
-            {cardDetails.map(detail => (
-              <div className={styles.dealDecisionRow} key={detail.label}>
-                <span>{detail.label}</span>
-                <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
-                  {detail.value}
-                </strong>
+
+            <div className={styles.dealDecisionDetails}>
+              <div className={styles.dealDecisionHeader}>
+                <span>{priceLabel}</span>
+                <strong>{formatMoney(displayPrice)}</strong>
               </div>
-            ))}
-            {!isOffer && isRealEstate && (
-              <div className={styles.dealDecisionNote}>
-                Недвижимость может купить только игрок, которому выпала карта.
-              </div>
-            )}
+              {cardDetails.map(detail => (
+                <div className={styles.dealDecisionRow} key={detail.label}>
+                  <span>{detail.label}</span>
+                  <strong className={detail.accent === 'negative' ? styles.dealDecisionNegative : detail.accent === 'positive' ? styles.dealDecisionPositive : undefined}>
+                    {detail.value}
+                  </strong>
+                </div>
+              ))}
+              {!isOffer && isRealEstate && (
+                <div className={styles.dealDecisionNote}>
+                  Недвижимость может купить только игрок, которому выпала карта.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -3,24 +3,31 @@
   flex-direction: column;
   gap: 8px;
   padding: 0 4px;
+  font-family: 'Montserrat Alternates', sans-serif;
 }
 
 .label {
-  padding-left: 0;
-  color: rgba(60, 60, 67, 0.6);
-  font-family: 'Montserrat Alternates', sans-serif;
-  font-size: 11px;
+  padding-left: 12px;
+  color: rgb(174, 174, 178);
+  font-size: 13px;
   font-weight: 500;
-  line-height: 16px;
+  line-height: 18px;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .track {
   position: relative;
   width: 100%;
-  height: 26px;
+  height: 40px;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 16px;
   background: rgba(120, 120, 128, 0.08);
+  box-shadow:
+    inset 0.5px 0.5px 0 #1a1a1a,
+    inset -0.5px -0.5px 0 #1a1a1a,
+    inset 1.5px 1.5px 0.5px -1px rgba(255, 255, 255, 0.4),
+    inset -1.5px -1.5px 0.5px -1px rgba(255, 255, 255, 0.4);
 }
 
 .text {
@@ -30,10 +37,10 @@
   z-index: 1;
   transform: translate(-50%, -50%);
   color: #111;
-  font-family: 'Montserrat Alternates', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -43,8 +50,10 @@
   top: 0;
   left: 0;
   height: 100%;
-  border-radius: 12px;
-  background: #7776dc;
+  border-radius: 16px 0 0 16px;
+  background:
+    linear-gradient(138deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+    rgb(119, 118, 220);
 }
 
 .clip {
@@ -63,35 +72,22 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #ffcc00;
-  font-family: 'Montserrat Alternates', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 18px;
+  color: rgb(255, 204, 0);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
-@media (max-width: 480px) {
-  .container {
-    gap: 10px;
-    padding: 0;
-  }
-
+@media (max-width: 360px) {
   .label {
-    padding-left: 0;
-    text-align: center;
-    font-size: 14px;
-    line-height: 18px;
-  }
-
-  .track {
-    height: 26px;
-    border-radius: 14px;
+    padding-left: 8px;
+    font-size: 12px;
   }
 
   .text,
   .clipText {
-    font-size: 17px;
-    line-height: 21px;
+    font-size: 18px;
   }
 }

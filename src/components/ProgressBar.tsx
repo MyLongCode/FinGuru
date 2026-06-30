@@ -17,7 +17,7 @@ export default function ProgressBar({
 
   return (
     <div className={styles.container}>
-      <span className={styles.label}>До выхода на большой круг</span>
+      <span className={styles.label}>До выхода на большой круг нужно</span>
       <div className={styles.track}>
         <span className={styles.text}>{label}</span>
         <div className={styles.fill} style={{ width: `${progressPct * 100}%` }} />

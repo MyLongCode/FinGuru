@@ -2,9 +2,10 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
   font-family: 'Montserrat Alternates', sans-serif;
   box-sizing: border-box;
+  color: rgb(28, 28, 30);
 }
 
 .container *,
@@ -13,14 +14,35 @@
   box-sizing: border-box;
 }
 
-.title {
-  font-weight: 600;
-  font-size: 15px;
-  color: rgb(60, 60, 67);
-  margin: 0;
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 12px 8px;
 }
 
-.list {
+.roundGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.roundGroup + .roundGroup {
+  padding-top: 18px;
+  border-top: 1px solid rgb(229, 229, 234);
+}
+
+.roundTitle {
+  margin: 0;
+  color: rgba(60, 60, 67, 0.6);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.entries {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -29,7 +51,14 @@
 .entry {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.entry + .entry {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(229, 229, 234);
 }
 
 .playerRow {
@@ -44,24 +73,29 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .playerName {
   font-weight: 600;
   font-size: 15px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .moveMeta {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .moveLabel,
 .moveTime {
   font-weight: 500;
   font-size: 12px;
+  line-height: 1.25;
   color: rgb(174, 174, 178);
 }
 
@@ -71,16 +105,25 @@
   gap: 12px;
   justify-content: space-between;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .transactionType {
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .transactionAction {
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.25;
+  min-width: 0;
+  max-width: 54%;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .finances {
@@ -90,17 +133,19 @@
 }
 
 .financeRow {
-  display: flex;
-  flex-direction: row;
-  gap: 16px;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) minmax(0, auto);
+  gap: 8px;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .financeLabel {
   font-weight: 500;
   font-size: 13px;
-  color: rgb(60, 60, 67);
+  line-height: 1.25;
+  color: rgba(60, 60, 67, 0.6);
+  overflow-wrap: anywhere;
 }
 
 .financeValues {
@@ -108,12 +153,16 @@
   flex-direction: row;
   gap: 6px;
   align-items: center;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  min-width: 0;
+  flex-wrap: wrap;
+  text-align: right;
 }
 
 .financeChange {
   font-weight: 500;
   font-size: 13px;
+  line-height: 1.25;
   white-space: nowrap;
 }
 
@@ -126,22 +175,24 @@
 .financeResult {
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.25;
   white-space: nowrap;
 }
 
 .dealCard {
-  background: rgb(75, 145, 0);
+  background: linear-gradient(135deg, rgb(104, 187, 55), rgb(60, 142, 0));
   border-radius: 16px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: none;
 }
 
 .dealHeader {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   background: none;
   border: none;
@@ -156,7 +207,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-width: 0;
 }
 
@@ -165,18 +215,35 @@
   font-size: 13px;
   color: rgb(255, 255, 255);
   margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .dealArrow {
-  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  line-height: 1;
   color: rgb(255, 255, 255);
   flex-shrink: 0;
-  margin-top: 4px;
   transition: transform 0.2s;
 }
 
 .dealArrowUp {
   transform: rotate(180deg);
+}
+
+.dealDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
 }
 
 .dealDescription {
@@ -185,6 +252,7 @@
   color: rgb(255, 255, 255);
   margin: 0;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .dealPriceRow {
@@ -206,15 +274,28 @@
   color: rgb(255, 255, 255);
 }
 
-.divider {
+.emptyState {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px 0;
+  gap: 8px;
+  padding: 0 12px 8px;
 }
 
-.divider::after {
-  content: '';
-  height: 0;
-  border-top: 1px solid rgb(229, 229, 234);
+.emptyState p {
+  margin: 0;
+  color: rgba(60, 60, 67, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+@media (max-width: 560px) {
+  .list,
+  .emptyState {
+    padding: 8px 14px 96px;
+  }
+
+  .financeRow {
+    grid-template-columns: minmax(92px, 1fr) minmax(0, auto);
+  }
 }

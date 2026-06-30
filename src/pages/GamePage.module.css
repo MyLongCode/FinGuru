@@ -93,7 +93,7 @@
 .historyColumn {
   height: calc(100dvh - 16px);
   overflow-y: auto;
-  padding: 8px;
+  padding: 8px 4px;
   scrollbar-width: thin;
   background: #fff;
   border: 0;
@@ -124,30 +124,33 @@
 
 .sideTabs {
   display: grid;
-  grid-template-columns: 1fr 1.25fr;
-  gap: 4px;
-  margin: 0 0 16px;
-  padding: 6px;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 32px;
+  margin: 6px 0 16px;
+  padding: 2px;
   border: 0;
-  border-radius: 18px;
-  background: #fff;
+  border-radius: 16px;
+  background: rgba(118, 118, 128, 0.12);
 }
 
 .sideTab,
 .sideTabActive {
-  min-height: 34px;
+  min-height: 28px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 14px;
   background: transparent;
-  color: rgb(0, 0, 0);
+  color: rgb(28, 28, 30);
   font-family: inherit;
   font-size: 10px;
   font-weight: 600;
+  line-height: 1.1;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
 }
 
 .sideTabActive {
-  background: rgb(244, 244, 245);
+  background: #fff;
   color: rgb(28, 28, 30);
   box-shadow: none;
 }
@@ -1114,19 +1117,39 @@
 
 .dealDecisionMain {
   min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 24px 10px;
+  overflow: hidden;
+  scrollbar-width: thin;
+}
+
+.dealDecisionBody {
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 20px 24px 14px;
+  gap: 14px;
   overflow-y: auto;
+  padding-right: 4px;
   scrollbar-width: thin;
+}
+
+.dealDecisionBody::-webkit-scrollbar,
+.dealActionPanel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dealDecisionBody::-webkit-scrollbar-thumb,
+.dealActionPanel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .dealDecisionContent {
   display: flex;
   min-height: 0;
   flex-direction: column;
-  gap: 12px;
 }
 
 .dealDecisionMeta {
@@ -1143,20 +1166,20 @@
 .dealDecisionTitle {
   margin: 0;
   color: #fff;
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
-  line-height: 28px;
+  line-height: 23px;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .dealDecisionDescription {
   margin: 0;
-  overflow: visible;
   color: #fff;
-  font-size: 17px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 25px;
-  letter-spacing: -0.51px;
+  line-height: 16px;
+  letter-spacing: 0;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -1169,6 +1192,8 @@
   display: flex;
   flex-direction: column;
   align-self: stretch;
+  gap: 0;
+  flex: 0 0 auto;
 }
 
 .dealDecisionHeader,
@@ -1181,40 +1206,45 @@
 }
 
 .dealDecisionHeader {
-  padding-bottom: 4px;
+  min-height: 32px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .dealDecisionHeader span,
 .dealDecisionHeader strong {
   color: #fff;
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 600;
-  line-height: 28px;
+  line-height: 22px;
 }
 
 .dealDecisionRow {
-  min-height: 36px;
-  padding: 6px 0;
+  min-height: 34px;
+  padding: 7px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .dealDecisionRow span,
 .dealDecisionRow strong {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .dealDecisionRow span {
   min-width: 0;
   color: rgba(255, 255, 255, 0.78);
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .dealDecisionRow strong {
-  max-width: 150px;
+  min-width: 94px;
+  max-width: 48%;
   color: #fff;
   font-weight: 600;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .dealDecisionPositive {
@@ -1349,13 +1379,15 @@
 
 .dealDecisionNote {
   margin-top: 10px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.88);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 17px;
+  line-height: 14px;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .dealActionPanel {
