@@ -18,9 +18,6 @@ import {
   subscribeCellResolved,
   resolveCellAction,
   payLiability,
-  getBoard,
-  getDeals,
-  getAssets,
   takeCredit,
   claimSalary,
   placeAuctionBid,
@@ -32,8 +29,9 @@ import {
   type DiceRollResult,
   type CellResolvedEvent,
   type FinGuruHistoryEntry,
+  type FinGuruLiability,
 } from '../sdk'
-import { buildCellPath, isValidMoneyAmount, sortHistoryByTurn } from '../utils/gameUi'
+import { buildCellPath, formatRollResult, getBankCreditProjection, isValidMoneyAmount, sortHistoryByTurn } from '../utils/gameUi'
 import styles from './GamePage.module.css'
 
 const MIN_DICE_ANIMATION_MS = 900
@@ -75,10 +73,8 @@ export default function GamePage() {
   const [isResolvingDecision, setIsResolvingDecision] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
   const [lastRoll, setLastRoll] = useState<DiceRollResult | null>(null)
+  const [turnRoll, setTurnRoll] = useState<{ label: string; turnCount: number; awaitsDecision: boolean } | null>(null)
   const [statusMessage, setStatusMessage] = useState('Ждем состояние игры...')
-  const [board, setBoard] = useState<any[] | null>(null)
-  const [deals, setDeals] = useState<any[] | null>(null)
-  const [assets, setAssets] = useState<any[] | null>(null)
   const [activeEventCard, setActiveEventCard] = useState<EventCardData | null>(null)
   const [collapsedDecisionKey, setCollapsedDecisionKey] = useState<string | null>(null)
   const [amountDialog, setAmountDialog] = useState<{
@@ -128,13 +124,6 @@ export default function GamePage() {
       if (me) setMyColor(me.color)
     })
 
-    Promise.all([getBoard(sdk, roomId), getDeals(sdk, roomId), getAssets(sdk, roomId)])
-      .then(([b, d, a]) => {
-        if (b) setBoard(b)
-        if (d) setDeals(d)
-        if (a) setAssets(a)
-      })
-      .catch(() => {})
   }, [roomId, sdkPlayerId, applyDisplayPositions])
 
   useEffect(() => {
@@ -142,6 +131,7 @@ export default function GamePage() {
     const sdk = getSdk()
 
     const unsubState = subscribeGameStateUpdate(sdk, roomId, (state) => {
+      setTurnRoll(current => current?.awaitsDecision && state.turnCount > current.turnCount ? null : current)
       setGameState(state)
       applyDisplayPositions(getPlayerPositions(state.players))
       setMoveHistory(mapServerHistory(state.history))
@@ -181,6 +171,14 @@ export default function GamePage() {
 
     const unsubDice = subscribeDiceRoll(sdk, roomId, (result: DiceRollResult) => {
       clearRollTimeout()
+      const rollDiceValues = result.diceValues?.length
+        ? result.diceValues
+        : [result.dice1, result.dice2].filter(Boolean)
+      setTurnRoll({
+        label: formatRollResult(rollDiceValues, result.total, result.eventTitle, result.sectorLabel),
+        turnCount: result.turnCount ?? 0,
+        awaitsDecision: Boolean(result.requiresDecision),
+      })
       const applyRollResult = () => {
         rollTimeoutRef.current = null
         setLastRoll(result)
@@ -207,9 +205,6 @@ export default function GamePage() {
         if (me) setMyColor(me.color)
 
         const rolledPlayer = result.players.find(p => p.playerId === result.rolledBy)
-        const rollDiceValues = result.diceValues?.length
-          ? result.diceValues
-          : [result.dice1, result.dice2].filter(Boolean)
         setActiveEventCard({
           id: `roll:${Date.now()}:${result.rolledBy}`,
           sectorType: result.sectorType,
@@ -260,6 +255,7 @@ export default function GamePage() {
         setMoveHistory(mapServerHistory(result.history))
 
         setIsRolling(false)
+        if (!result.requiresDecision) setTurnRoll(null)
       }
 
       const animateMovement = () => {
@@ -309,6 +305,7 @@ export default function GamePage() {
       setIsResolvingDecision(false)
 
       if (event.state) {
+        setTurnRoll(current => current?.awaitsDecision && event.state!.turnCount > current.turnCount ? null : current)
         setGameState(event.state)
         setMoveHistory(mapServerHistory(event.state.history))
         setStatusMessage(getStatusMessage(event.state, sdkPlayerId))
@@ -470,7 +467,7 @@ export default function GamePage() {
     if (isResolvingDecision || !gameState) return
     const player = gameState.players.find(item => item.playerId === sdkPlayerId)
     if (!player) return
-    const maximum = Math.max(0, (player.income - player.expenses) * 10)
+    const maximum = getBankCreditProjection(player.income, player.expenses, player.liabilities ?? []).maximum
     if (maximum <= 0) return
     setAmountDialog({ kind: 'credit', title: 'Взять кредит', max: maximum })
   }, [gameState, sdkPlayerId, isResolvingDecision])
@@ -679,8 +676,21 @@ export default function GamePage() {
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
   const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
-  const availableCredit = Math.max(0, cashFlow * 10)
-  const creditPayment = availableCredit > 0 ? Math.ceil(availableCredit * 0.1) : 0
+  const creditProjection = getBankCreditProjection(
+    dashboardPlayer.income,
+    dashboardPlayer.expenses,
+    dashboardPlayer.liabilities ?? [],
+    0,
+  )
+  const availableCredit = creditProjection.maximum
+  const maximumCreditProjection = getBankCreditProjection(
+    dashboardPlayer.income,
+    dashboardPlayer.expenses,
+    dashboardPlayer.liabilities ?? [],
+    availableCredit,
+  )
+  const creditPayment = maximumCreditProjection.combinedPayment
+  const projectedCreditCashFlow = maximumCreditProjection.projectedCashFlow
   const visibleCircle = dashboardPlayer.isOnBigCircle ? 'big' : 'small'
   const statuses = [
     ...(isFinanciallyFree ? [{
@@ -715,20 +725,16 @@ export default function GamePage() {
       bgColor: 'rgba(88, 86, 214, 0.16)',
     }] : []),
   ]
-  const lastRollLabel = lastRoll
-    ? lastRoll.total > 0
-      ? `${(lastRoll.diceValues?.length ? lastRoll.diceValues : [lastRoll.dice1, lastRoll.dice2].filter(Boolean)).join('+')} = ${lastRoll.total} | ${lastRoll.sectorLabel}`
-      : lastRoll.sectorLabel
-    : undefined
-  const rollButtonLabel = isRolling
-    ? 'Бросаем...'
+  const rollButtonLabel = turnRoll?.label
+    ?? (isRolling
+      ? 'Бросаем...'
     : isGameOver
       ? 'Игра завершена'
       : isMyTurn
         ? activeDiceCount > 2 ? 'Бросить 3 кубика' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
         : activePlayer
           ? `Ходит ${activePlayer.displayName}`
-          : 'Ожидание'
+          : 'Ожидание')
 
   const handleMobileViewChange = useCallback((view: 'profile' | 'small' | 'big' | 'players' | 'history') => {
     const nextView = view === 'small' || view === 'big' ? visibleCircle : view
@@ -813,18 +819,12 @@ export default function GamePage() {
           isRolling={isRolling}
           diceCount={activeDiceCount}
           diceValues={lastRoll?.diceValues ?? []}
-          lastRollLabel={lastRollLabel}
           rollButtonLabel={rollButtonLabel}
+          bigTrack={gameState?.bigTrack ?? []}
           activeTab={activeTab}
           visibleCircle={visibleCircle}
           onTabChange={setActiveTab}
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
-          // @ts-ignore
-          boardConfig={board}
-          // @ts-ignore
-          deals={deals}
-          // @ts-ignore
-          assets={assets}
         />
       </div>
 
@@ -983,6 +983,7 @@ export default function GamePage() {
                 currentCashFlow={cashFlow}
                 availableCredit={availableCredit}
                 creditPayment={creditPayment}
+                projectedCreditCashFlow={projectedCreditCashFlow}
                 onAccept={(quantity) => handleDecisionAction(dealCardOption.option, dealCardOption.action, quantity)}
                 onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
                 onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
@@ -1062,6 +1063,11 @@ export default function GamePage() {
           title={amountDialog.title}
           max={amountDialog.max}
           paymentPreview={amountDialog.kind === 'credit'}
+          creditContext={amountDialog.kind === 'credit' ? {
+            income: dashboardPlayer.income,
+            expenses: dashboardPlayer.expenses,
+            liabilities: dashboardPlayer.liabilities ?? [],
+          } : undefined}
           onCancel={() => setAmountDialog(null)}
           onConfirm={handleAmountConfirm}
         />
@@ -1074,17 +1080,22 @@ function MoneyAmountDialog({
   title,
   max,
   paymentPreview,
+  creditContext,
   onCancel,
   onConfirm,
 }: {
   title: string
   max: number
   paymentPreview: boolean
+  creditContext?: { income: number; expenses: number; liabilities: FinGuruLiability[] }
   onCancel: () => void
   onConfirm: (amount: number) => void
 }) {
   const [amount, setAmount] = useState(Math.max(1, max))
   const validAmount = isValidMoneyAmount(amount, max)
+  const preview = creditContext
+    ? getBankCreditProjection(creditContext.income, creditContext.expenses, creditContext.liabilities, amount)
+    : null
 
   return (
     <div className={styles.amountDialogOverlay} role="presentation">
@@ -1105,7 +1116,11 @@ function MoneyAmountDialog({
         </label>
         <button type="button" className={styles.amountMaxButton} onClick={() => setAmount(max)}>Вся сумма</button>
         {paymentPreview && validAmount && (
-          <p className={styles.amountPreview}>Ежемесячный платёж: <strong>{formatMoney(Math.ceil(amount * 0.1))}</strong></p>
+          <p className={styles.amountPreview}>
+            Ежемесячный платёж: <strong>{formatMoney(preview?.combinedPayment ?? Math.ceil(amount * 0.1))}</strong>
+            <br />
+            Денежный поток после кредита: <strong>{formatMoney(preview?.projectedCashFlow ?? 0)}</strong>
+          </p>
         )}
         <div className={styles.amountDialogActions}>
           <button type="button" onClick={onCancel}>Отмена</button>
@@ -1361,6 +1376,7 @@ function DealDecisionCard({
   currentCashFlow = 0,
   availableCredit = 0,
   creditPayment = 0,
+  projectedCreditCashFlow = 0,
   onAccept,
   onSell,
   onAuction,
@@ -1385,6 +1401,7 @@ function DealDecisionCard({
   currentCashFlow?: number
   availableCredit?: number
   creditPayment?: number
+  projectedCreditCashFlow?: number
   onAccept?: (quantity?: number) => void
   onSell?: (offerPrice: number) => void
   onAuction?: () => void
@@ -1525,7 +1542,7 @@ function DealDecisionCard({
             <section className={styles.dealActionSection}>
               <h3>Доступен кредит {formatMoney(availableCredit)}</h3>
               <p className={styles.dealCreditHint}>
-                Денежный поток сократится на <strong>{formatMoney(creditPayment)}</strong>
+                Платёж по кредиту: <strong>{formatMoney(creditPayment)}</strong> · Денежный поток после кредита: <strong>{formatMoney(projectedCreditCashFlow)}</strong>
               </p>
               <button
                 className={`${styles.dealActionButton} ${styles.dealActionButtonCredit}`}

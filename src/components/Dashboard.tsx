@@ -3,6 +3,7 @@ import styles from './Dashboard.module.css'
 import ProgressBar from './ProgressBar'
 import DashboardHeader from './DashboardHeader'
 import { formatCurrency } from '../utils/format'
+import { getBankCreditProjection } from '../utils/gameUi'
 import type { FinGuruAsset, FinGuruLiability } from '../sdk'
 
 export interface DashboardStats {
@@ -434,8 +435,11 @@ export default function Dashboard({
   const assetQuantity = assets.reduce((sum, asset) => sum + Math.max(1, asset.quantity || 1), 0)
   const totalIncome = stats.salary + stats.passiveIncome
   const baseExpenses = Math.max(0, stats.expenses - liabilitiesPayment)
-  const availableCredit = Math.max(0, stats.cashFlow * 10)
-  const creditPayment = availableCredit > 0 ? Math.ceil(availableCredit * 0.1) : 0
+  const creditProjection = getBankCreditProjection(totalIncome, stats.expenses, liabilities, 0)
+  const availableCredit = creditProjection.maximum
+  const creditPayment = availableCredit > 0
+    ? getBankCreditProjection(totalIncome, stats.expenses, liabilities, availableCredit).combinedPayment
+    : creditProjection.combinedPayment
   const canClaimSalary = salaryPayoutMode === 'manual' && accruedSalary > 0 && Boolean(onClaimSalary)
   const skipStatus = statuses.find(status => status.label === 'Пропуск хода')
   const statusItems = useMemo(() => statuses.filter(status => status.label !== 'Пропуск хода').slice(0, 3), [statuses])

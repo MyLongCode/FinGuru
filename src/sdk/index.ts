@@ -307,6 +307,18 @@ export interface DreamState {
   chosenByPlayerId: string | null
 }
 
+export interface SpeedTrackCell {
+  position: number
+  cardId: string
+  type: string
+  title: string
+  description: string
+  cost: number
+  cashFlow: number
+  dealType: string
+  logic: string
+}
+
 export interface GameState {
   roomId: string
   phase: string
@@ -318,6 +330,7 @@ export interface GameState {
   settings: FinGuruGameSettings
   players: PlayerGameState[]
   dreams: DreamState[]
+  bigTrack: SpeedTrackCell[]
   pendingDecision?: PendingDecision | null
   pendingAuction?: FinGuruAuctionState | null
   currentPlayerId: string
@@ -525,11 +538,12 @@ function normalizeGameSettings(settings: any): FinGuruGameSettings {
   }
 }
 
-function normalizeGameState(data: any): GameState | null {
+export function normalizeGameState(data: any): GameState | null {
   if (!data) return null
 
   const players = data.players ?? data.Players ?? []
   const dreams = data.dreams ?? data.Dreams ?? []
+  const bigTrack = data.bigTrack ?? data.BigTrack ?? []
   const pending = data.pendingDecision ?? data.PendingDecision ?? null
   const pendingAuction = data.pendingAuction ?? data.PendingAuction ?? null
 
@@ -550,6 +564,17 @@ function normalizeGameState(data: any): GameState | null {
       description: dream.description ?? dream.Description ?? '',
       price: dream.price ?? dream.Price ?? 0,
       chosenByPlayerId: dream.chosenByPlayerId ?? dream.ChosenByPlayerId ?? null,
+    })),
+    bigTrack: bigTrack.map((cell: any, index: number) => ({
+      position: cell.position ?? cell.Position ?? index,
+      cardId: cell.cardId ?? cell.CardId ?? '',
+      type: cell.type ?? cell.Type ?? '',
+      title: cell.title ?? cell.Title ?? '',
+      description: cell.description ?? cell.Description ?? '',
+      cost: cell.cost ?? cell.Cost ?? 0,
+      cashFlow: cell.cashFlow ?? cell.CashFlow ?? 0,
+      dealType: cell.dealType ?? cell.DealType ?? '',
+      logic: cell.logic ?? cell.Logic ?? '',
     })),
     pendingDecision: normalizePendingDecision(pending),
     pendingAuction: normalizePendingAuction(pendingAuction),

@@ -2,7 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties, ty
 import styles from './GameBoard.module.css'
 import centerImage from '../assets/GameBoard.png'
 import { sectors, bigSectors, SECTOR_COUNT } from '../data/gameBoard'
-import TopBar, { type TopBarDreams, type TopBarPlayers } from './TopBar'
+import type { SectorConfig } from '../data/gameBoard'
+import type { SpeedTrackCell } from '../sdk'
+import { getSpeedTrackTone, getTwoLineSpeedTrackTitle } from '../utils/gameUi'
+import TopBar, { type TopBarDreams, type TopBarItem, type TopBarPlayers } from './TopBar'
 
 const SECTOR_ANGLE = 360 / SECTOR_COUNT
 const BIG_SECTOR_COUNT = 48
@@ -10,6 +13,7 @@ const BIG_SECTOR_ANGLE = 360 / BIG_SECTOR_COUNT
 const CX = 420
 const CY = 420
 const VIEWBOX = 840
+const BIG_VIEWBOX = 440
 const INNER_SECTOR_RADIUS = 200
 const RING_INNER = 200
 const RING_OUTER = 250
@@ -35,11 +39,11 @@ interface GameBoardProps {
   players?: PlayerMarker[]
   bigSectorPlayers?: PlayerMarker[]
   bigSectorDreams?: DreamMarker[]
+  bigTrack?: SpeedTrackCell[]
   currentPlayerId?: string
   isRolling?: boolean
   diceCount?: number
   diceValues?: number[]
-  lastRollLabel?: string
   rollButtonLabel?: string
   activeTab?: 'small' | 'big'
   visibleCircle?: 'small' | 'big'
@@ -163,9 +167,9 @@ function buildPlayerMarkers(
   return markers
 }
 
-const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL }: { index: number; outer?: boolean; outerRadius?: number }) {
+const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL, config }: { index: number; outer?: boolean; outerRadius?: number; config?: SectorConfig }) {
   const configArray = outer ? bigSectors : sectors
-  const { color, label } = configArray[index % configArray.length]
+  const { color, label } = config ?? configArray[index % configArray.length]
   const angle = outer ? BIG_SECTOR_ANGLE : SECTOR_ANGLE
   const startAngle = index * angle
   const endAngle = (index + 1) * angle
@@ -180,6 +184,7 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
   const lx = CX + labelR * Math.cos(midRad)
   const ly = CY + labelR * Math.sin(midRad)
   const rotation = midAngle - 90
+  const [firstLine, secondLine] = getTwoLineSpeedTrackTitle(label)
 
   return (
     <g>
@@ -187,7 +192,7 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
         d={outer ? sectorRingPath(startAngle, endAngle, innerR, outerR) : sectorPath(startAngle, endAngle, outerR)}
         fill={!outer ? color : `url(#outer-grad-${color})`}
       />
-      {!outer && (
+      {!outer ? (
         <foreignObject
           x={lx - LABEL_WIDTH / 2}
           y={ly - LABEL_HEIGHT / 2}
@@ -197,6 +202,19 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
         >
           <div style={SECTOR_LABEL_STYLE}>
             {label}
+          </div>
+        </foreignObject>
+      ) : (
+        <foreignObject
+          x={lx - 70}
+          y={ly - 22}
+          width={140}
+          height={44}
+          transform={`rotate(${rotation}, ${lx}, ${ly})`}
+        >
+          <div style={{ ...SECTOR_LABEL_STYLE, fontSize: '18px', lineHeight: 1.05, flexDirection: 'column' }}>
+            <span>{firstLine}</span>
+            {secondLine && <span>{secondLine}</span>}
           </div>
         </foreignObject>
       )}
@@ -231,11 +249,11 @@ export default function GameBoard({
   players = [],
   bigSectorPlayers = [],
   bigSectorDreams = [],
+  bigTrack = [],
   currentPlayerId,
   isRolling = false,
   diceCount = 2,
   diceValues = [],
-  lastRollLabel,
   rollButtonLabel,
   activeTab = 'small',
   visibleCircle,
@@ -267,6 +285,21 @@ export default function GameBoard({
   const outerMarkerR = (outerRingInner + outerRingOuter) / 2
   const innerMarkerR = (RING_INNER + RING_OUTER) / 2
   const outerMarkerScale = tab === 'big' ? 2.5 : 1
+  const wheelViewBox = tab === 'big'
+    ? `${CX - BIG_VIEWBOX / 2} ${CY - BIG_VIEWBOX / 2} ${BIG_VIEWBOX} ${BIG_VIEWBOX}`
+    : `0 0 ${VIEWBOX} ${VIEWBOX}`
+  const speedTrackSectors = useMemo<SectorConfig[]>(() => {
+    if (bigTrack.length === 0) {
+      return Array.from({ length: BIG_SECTOR_COUNT }, (_, index) => bigSectors[index % bigSectors.length])
+    }
+    const byPosition = new Map(bigTrack.map(cell => [cell.position, cell]))
+    return Array.from({ length: BIG_SECTOR_COUNT }, (_, index) => {
+      const cell = byPosition.get(index) ?? bigTrack[index]
+      return cell
+        ? { label: cell.title, color: getSpeedTrackTone(cell.type, cell.dealType) }
+        : bigSectors[index % bigSectors.length]
+    })
+  }, [bigTrack])
 
   const innerSectorElements = useMemo<ReactNode[]>(
     () => Array.from({ length: SECTOR_COUNT }, (_, i) => (
@@ -277,9 +310,9 @@ export default function GameBoard({
 
   const outerSectorElements = useMemo<ReactNode[]>(
     () => Array.from({ length: BIG_SECTOR_COUNT }, (_, i) => (
-      <Sector key={`out-${i}`} index={i} outer outerRadius={outerSectorRadiusFull} />
+      <Sector key={`out-${i}`} index={i} outer outerRadius={outerSectorRadiusFull} config={speedTrackSectors[i]} />
     )),
-    [outerSectorRadiusFull],
+    [outerSectorRadiusFull, speedTrackSectors],
   )
 
   const innerPlayerMarkers = useMemo<ReactNode[]>(
@@ -316,10 +349,33 @@ export default function GameBoard({
       })
   }, [bigSectorDreams, outerMarkerScale, outerMarkerR])
 
-  const topBarSectors = useMemo(
-    () => Array.from({ length: BIG_SECTOR_COUNT }, (_, i) => bigSectors[i % bigSectors.length]),
-    [],
-  )
+  const topBarItems = useMemo<TopBarItem[]>(() => {
+    if (bigTrack.length === 0) {
+      return speedTrackSectors.map(sector => ({
+        variant: sector.color === 'pink' ? 'pink' : sector.color === 'purple' ? 'purple' : sector.color === 'orange' ? 'orange' : 'green',
+        title: sector.label,
+      }))
+    }
+    const formatMoney = (value: number) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`
+    return [...bigTrack]
+      .sort((left, right) => left.position - right.position)
+      .map(cell => {
+        const hasCost = cell.cost > 0
+        const hasCashFlow = cell.cashFlow !== 0
+        return {
+          variant: getSpeedTrackTone(cell.type, cell.dealType),
+          title: cell.title,
+          label: hasCost && hasCashFlow ? 'Стоимость · поток' : hasCost ? 'Стоимость' : hasCashFlow ? 'Денежный поток' : undefined,
+          value: hasCost && hasCashFlow
+            ? `${formatMoney(cell.cost)} · ${cell.cashFlow > 0 ? '+' : ''}${formatMoney(cell.cashFlow)}/мес.`
+            : hasCost
+              ? formatMoney(cell.cost)
+              : hasCashFlow
+                ? `${cell.cashFlow > 0 ? '+' : ''}${formatMoney(cell.cashFlow)}/мес.`
+                : undefined,
+        }
+      })
+  }, [bigTrack, speedTrackSectors])
 
   const topBarPlayers = useMemo<TopBarPlayers>(() => {
     const result: TopBarPlayers = {}
@@ -412,12 +468,12 @@ export default function GameBoard({
         )}
 
         <div className={`${styles.topBarWrapper} ${tab === 'big' ? styles.topBarWrapperVisible : ''}`}>
-          <TopBar sectors={topBarSectors} players={topBarPlayers} dreams={topBarDreams} onActiveIndexChange={setActiveIndex} />
+          <TopBar items={topBarItems} players={topBarPlayers} dreams={topBarDreams} onActiveIndexChange={setActiveIndex} />
         </div>
 
         <div className={styles.wheelWrapper}>
           <div className={styles.spinLayer}>
-          <svg viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} className={styles.wheelSvg}>
+          <svg viewBox={wheelViewBox} className={styles.wheelSvg}>
             <defs>
               <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#FFD700" />
@@ -446,6 +502,10 @@ export default function GameBoard({
               <linearGradient id='outer-grad-green' x1='0%' y1='0%' x2='100%' y2='100%'>
                 <stop offset='0%' stopColor='#40D451' />
                 <stop offset='100%' stopColor='#39A7DB' />
+              </linearGradient>
+              <linearGradient id='outer-grad-pink' x1='0%' y1='0%' x2='100%' y2='100%'>
+                <stop offset='0%' stopColor='#FF6AAE' />
+                <stop offset='100%' stopColor='#D94BCE' />
               </linearGradient>
               <linearGradient id='outer-grad-orange' x1='0%' y1='0%' x2='100%' y2='100%'>
                 <stop offset='0%' stopColor='#FFF71A' />
@@ -533,14 +593,7 @@ export default function GameBoard({
             </g>
           </svg>
           </div>
-          {lastRollLabel && (
-            <div className={styles.rollBadge}>
-              {lastRollLabel}
-            </div>
-          )}
         </div>
-
-        <div style={{ flex: 1, minHeight: 0 }} />
 
         <div className={styles.diceDock}>
           <div className={styles.diceTray} aria-live="polite">

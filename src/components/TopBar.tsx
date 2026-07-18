@@ -4,6 +4,7 @@ import styles from './TopBar.module.css'
 import { bigSectors, type SectorConfig } from '../data/gameBoard'
 
 export const grads = {
+  pink: 'linear-gradient(90deg, #FF5BA7 0%, #D94BCE 100%)',
   green: 'linear-gradient(90deg, #40D451 0%, #39A7DB 100%)',
   orange: 'linear-gradient(90deg, #FFD31A 0%, #F6332C 100%)',
   purple: 'linear-gradient(90deg, #E85CEB 0%, #846ED4 100%)',

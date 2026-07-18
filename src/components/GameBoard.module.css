@@ -40,11 +40,14 @@
   flex: 1;
   z-index: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .wheelWrapper {
-  position: absolute;
-  inset: 0 0 46px;
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,7 +87,7 @@
 }
 
 .topBarWrapperVisible {
-  max-height: 400px;
+  max-height: min(250px, 36vh);
   opacity: 1;
   pointer-events: auto;
 }
@@ -122,26 +125,6 @@
   transform-origin: center;
 }
 
-.rollBadge {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, 86px);
-  z-index: 2;
-  min-width: 160px;
-  max-width: min(320px, 80%);
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
-  color: rgb(40, 40, 50);
-  font-size: 14px;
-  font-weight: 800;
-  text-align: center;
-  line-height: 1.25;
-  pointer-events: none;
-}
-
 @media (max-width: 768px) {
   .container {
     min-height: 0;
@@ -165,15 +148,15 @@
   }
 
   .wheelWrapper {
+    position: relative;
     inset: auto;
-    top: 60px;
-    left: 50%;
-    width: 620px;
-    height: 620px;
+    width: 100%;
+    height: auto;
+    min-height: 220px;
     align-items: center;
     justify-content: center;
-    overflow: visible;
-    transform: translateX(-50%);
+    overflow: hidden;
+    transform: none;
   }
 
   .wheelSvg {
@@ -181,21 +164,15 @@
     transform-origin: center center;
   }
 
-  .rollBadge {
-    max-width: 272px;
-    transform: translate(-50%, 78px);
-    padding: 10px 14px;
-    border-radius: 12px;
-    font-size: 15px;
+  .topBarWrapperVisible {
+    max-height: min(222px, 31vh);
   }
 
   .diceDock {
-    position: absolute;
-    right: 0;
-    bottom: 44px;
-    left: 0;
+    position: relative;
+    inset: auto;
     gap: 10px;
-    margin-bottom: 0;
+    margin-bottom: 12px;
   }
 
   .diceTray {
@@ -239,7 +216,7 @@
   font-family: 'Montserrat Alternates', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.25;
   letter-spacing: 0;
   cursor: pointer;
   box-shadow: none;
@@ -248,6 +225,8 @@
   z-index: 1;
   margin-bottom: 12px;
   flex-shrink: 0;
+  max-width: min(560px, calc(100vw - 32px));
+  white-space: normal;
 }
 
 .rollButton:hover {
@@ -355,12 +334,10 @@
   }
 
   .diceDock {
-    position: absolute;
-    right: 0;
-    bottom: 44px;
-    left: 0;
+    position: relative;
+    inset: auto;
     gap: 10px;
-    margin-bottom: 0;
+    margin-bottom: 12px;
   }
 
   .diceTray {
@@ -390,19 +367,13 @@
   }
 
   .wheelWrapper {
-    top: 52px;
-    width: 600px;
-    height: 600px;
-  }
-
-  .rollBadge {
-    max-width: 250px;
-    transform: translate(-50%, 72px);
-    font-size: 14px;
+    width: 100%;
+    height: auto;
+    min-height: 200px;
   }
 
   .diceDock {
-    bottom: 36px;
+    margin-bottom: 10px;
   }
 
   .rollButton {
