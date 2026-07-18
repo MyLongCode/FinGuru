@@ -27,6 +27,7 @@ export interface MoveEntry {
   actionColor: string
   finances: FinancialRow[]
   dealCard?: DealCardData
+  turnNumber?: number
 }
 
 interface MoveHistoryProps {
@@ -60,7 +61,7 @@ function buildGroups(title: string, entries: MoveEntry[]): MoveGroup[] {
   }
 
   return entries.reduce<MoveGroup[]>((groups, entry) => {
-    const label = formatRoundTitle(entry.moveLabel || title)
+    const label = entry.turnNumber ? `ХОД №${entry.turnNumber}` : formatRoundTitle(entry.moveLabel || title)
     const lastGroup = groups[groups.length - 1]
 
     if (lastGroup?.label === label) {

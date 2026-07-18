@@ -31,7 +31,9 @@ import {
   type FinGuruAuctionState,
   type DiceRollResult,
   type CellResolvedEvent,
+  type FinGuruHistoryEntry,
 } from '../sdk'
+import { buildCellPath, isValidMoneyAmount, sortHistoryByTurn } from '../utils/gameUi'
 import styles from './GamePage.module.css'
 
 const MIN_DICE_ANIMATION_MS = 900
@@ -79,12 +81,25 @@ export default function GamePage() {
   const [assets, setAssets] = useState<any[] | null>(null)
   const [activeEventCard, setActiveEventCard] = useState<EventCardData | null>(null)
   const [collapsedDecisionKey, setCollapsedDecisionKey] = useState<string | null>(null)
+  const [amountDialog, setAmountDialog] = useState<{
+    kind: 'credit' | 'repayment'
+    title: string
+    max: number
+    liabilityId?: string
+  } | null>(null)
+  const [displayPositions, setDisplayPositions] = useState<Record<string, { position: number; bigPosition: number }>>({})
   const pendingDecisionIdentity = gameState?.pendingDecision
     ? `${gameState.pendingDecision.decisionType}:${gameState.pendingDecision.createdAt ?? ''}:${gameState.pendingDecision.decisionOptions?.[0]?.cardId ?? ''}`
     : null
   const rollTimeoutRef = useRef<number | null>(null)
   const rollStartedAtRef = useRef<number>(0)
   const decisionTimeoutRef = useRef<number | null>(null)
+  const displayPositionsRef = useRef(displayPositions)
+
+  const applyDisplayPositions = useCallback((positions: Record<string, { position: number; bigPosition: number }>) => {
+    displayPositionsRef.current = positions
+    setDisplayPositions(positions)
+  }, [])
 
   const clearRollTimeout = useCallback(() => {
     if (rollTimeoutRef.current == null) return
@@ -105,6 +120,8 @@ export default function GamePage() {
     getGameState(sdk, roomId).then(state => {
       if (!state) return
       setGameState(state)
+      applyDisplayPositions(getPlayerPositions(state.players))
+      setMoveHistory(mapServerHistory(state.history))
       setStatusMessage(getStatusMessage(state, sdkPlayerId))
 
       const me = state.players.find(p => p.playerId === sdkPlayerId)
@@ -118,7 +135,7 @@ export default function GamePage() {
         if (a) setAssets(a)
       })
       .catch(() => {})
-  }, [roomId, sdkPlayerId])
+  }, [roomId, sdkPlayerId, applyDisplayPositions])
 
   useEffect(() => {
     if (!roomId) return
@@ -126,6 +143,8 @@ export default function GamePage() {
 
     const unsubState = subscribeGameStateUpdate(sdk, roomId, (state) => {
       setGameState(state)
+      applyDisplayPositions(getPlayerPositions(state.players))
+      setMoveHistory(mapServerHistory(state.history))
       setStatusMessage(getStatusMessage(state, sdkPlayerId))
 
       const me = state.players.find(p => p.playerId === sdkPlayerId)
@@ -179,8 +198,10 @@ export default function GamePage() {
             winners: result.winners ?? prev.winners,
             finalResults: result.finalResults ?? prev.finalResults,
             settings: result.settings ?? prev.settings,
+            history: result.history ?? prev.history,
           }
         })
+        applyDisplayPositions(getPlayerPositions(result.players))
 
         const me = result.players.find(p => p.playerId === sdkPlayerId)
         if (me) setMyColor(me.color)
@@ -236,16 +257,50 @@ export default function GamePage() {
           },
           ...prev,
         ])
+        setMoveHistory(mapServerHistory(result.history))
 
         setIsRolling(false)
+      }
+
+      const animateMovement = () => {
+        const movedPlayer = result.players.find(player => player.playerId === result.rolledBy)
+        const previous = displayPositionsRef.current[result.rolledBy]
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        if (!movedPlayer || !previous || result.total <= 0 || reduceMotion) {
+          applyRollResult()
+          return
+        }
+
+        const trackSize = movedPlayer.isOnBigCircle ? 48 : 24
+        const start = movedPlayer.isOnBigCircle ? previous.bigPosition : previous.position
+        const path = buildCellPath(start, result.total, trackSize)
+        let step = 0
+        const moveOneCell = () => {
+          const nextCell = path[step]
+          step++
+          const nextPositions = {
+            ...displayPositionsRef.current,
+            [result.rolledBy]: {
+              position: movedPlayer.isOnBigCircle ? previous.position : nextCell,
+              bigPosition: movedPlayer.isOnBigCircle ? nextCell : previous.bigPosition,
+            },
+          }
+          applyDisplayPositions(nextPositions)
+          if (step >= result.total) {
+            applyRollResult()
+            return
+          }
+          rollTimeoutRef.current = window.setTimeout(moveOneCell, 140)
+        }
+        moveOneCell()
       }
 
       const elapsed = Date.now() - rollStartedAtRef.current
       const remaining = Math.max(0, MIN_DICE_ANIMATION_MS - elapsed)
       if (remaining > 0) {
-        rollTimeoutRef.current = window.setTimeout(applyRollResult, remaining)
+        rollTimeoutRef.current = window.setTimeout(animateMovement, remaining)
       } else {
-        applyRollResult()
+        animateMovement()
       }
     })
 
@@ -255,6 +310,7 @@ export default function GamePage() {
 
       if (event.state) {
         setGameState(event.state)
+        setMoveHistory(mapServerHistory(event.state.history))
         setStatusMessage(getStatusMessage(event.state, sdkPlayerId))
         const me = event.state.players.find(p => p.playerId === sdkPlayerId)
         if (me) setMyColor(me.color)
@@ -309,6 +365,7 @@ export default function GamePage() {
         },
         ...prev,
       ])
+      if (event.state) setMoveHistory(mapServerHistory(event.state.history))
     })
 
     const unsubError = subscribeGameError(sdk, roomId, (message) => {
@@ -327,7 +384,7 @@ export default function GamePage() {
       clearRollTimeout()
       clearDecisionTimeout()
     }
-  }, [roomId, sdkPlayerId, clearRollTimeout, clearDecisionTimeout])
+  }, [roomId, sdkPlayerId, clearRollTimeout, clearDecisionTimeout, applyDisplayPositions])
 
   useEffect(() => {
     const me = gameState?.players.find(p => p.playerId === sdkPlayerId)
@@ -388,15 +445,48 @@ export default function GamePage() {
 
   const handlePayLiability = useCallback((liabilityId: string) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
+    const player = gameState?.players.find(item => item.playerId === sdkPlayerId)
+    const liability = player?.liabilities?.find(item => item.id === liabilityId)
+    if (liability?.liabilityType === 'bankLoan') {
+      setAmountDialog({
+        kind: 'repayment',
+        title: `Погасить кредит «${liability.title}»`,
+        max: Math.min(player?.cash ?? 0, liability.balance),
+        liabilityId,
+      })
+      return
+    }
     setIsResolvingDecision(true)
-    payLiability(getSdk(), roomId, sdkPlayerId, liabilityId)
-  }, [roomId, sdkPlayerId, isResolvingDecision])
+    payLiability(getSdk(), roomId, sdkPlayerId, liabilityId, liability?.balance ?? 0)
+  }, [roomId, sdkPlayerId, isResolvingDecision, gameState])
 
-  const handleTakeCredit = useCallback(() => {
+  const handleTakeCredit = useCallback((amount: number) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
     setIsResolvingDecision(true)
-    takeCredit(getSdk(), roomId, sdkPlayerId)
+    takeCredit(getSdk(), roomId, sdkPlayerId, amount)
   }, [roomId, sdkPlayerId, isResolvingDecision])
+
+  const handleRequestCredit = useCallback(() => {
+    if (isResolvingDecision || !gameState) return
+    const player = gameState.players.find(item => item.playerId === sdkPlayerId)
+    if (!player) return
+    const maximum = Math.max(0, (player.income - player.expenses) * 10)
+    if (maximum <= 0) return
+    setAmountDialog({ kind: 'credit', title: 'Взять кредит', max: maximum })
+  }, [gameState, sdkPlayerId, isResolvingDecision])
+
+  const handleAmountConfirm = useCallback((amount: number) => {
+    if (!amountDialog) return
+    const dialog = amountDialog
+    setAmountDialog(null)
+    if (dialog.kind === 'credit') {
+      handleTakeCredit(amount)
+      return
+    }
+    if (!dialog.liabilityId || !roomId || !sdkPlayerId) return
+    setIsResolvingDecision(true)
+    payLiability(getSdk(), roomId, sdkPlayerId, dialog.liabilityId, amount)
+  }, [amountDialog, handleTakeCredit, roomId, sdkPlayerId])
 
   const handleClaimSalary = useCallback(() => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
@@ -486,7 +576,7 @@ export default function GamePage() {
     id: p.playerId,
     color: p.color,
     letter: p.displayName.charAt(0).toUpperCase(),
-    cellIndex: p.position,
+    cellIndex: displayPositions[p.playerId]?.position ?? p.position,
     name: p.displayName,
   }))
 
@@ -496,7 +586,7 @@ export default function GamePage() {
       id: p.playerId,
       color: p.color,
       letter: p.displayName.charAt(0).toUpperCase(),
-      cellIndex: p.bigPosition ?? 0,
+      cellIndex: displayPositions[p.playerId]?.bigPosition ?? p.bigPosition ?? 0,
       name: p.displayName,
     }))
 
@@ -528,6 +618,7 @@ export default function GamePage() {
   }
   const pendingDecision = gameState?.pendingDecision ?? null
   const pendingAuction = gameState?.pendingAuction ?? null
+  const auctionDecisionKey = pendingAuction ? `auction:${pendingAuction.auctionId}` : null
   const publicOfferOption = pendingDecision?.decisionType === 'dealPublicOffer'
     ? pendingDecision.decisionOptions?.find(option => option.action === 'acceptDealOffer')
     : undefined
@@ -535,12 +626,14 @@ export default function GamePage() {
   const sharedDecisionOptions = pendingDecision?.playerDecisionOptions?.[sdkPlayerId] ?? []
   const isSharedParticipant = Boolean(pendingDecision && Object.prototype.hasOwnProperty.call(pendingDecision.playerDecisionOptions ?? {}, sdkPlayerId))
   const sharedDecisionCompleted = pendingDecision?.completedPlayerIds?.includes(sdkPlayerId) ?? false
+  const hasDeclinedPublicOffer = pendingDecision?.decisionType === 'dealPublicOffer'
+    && (pendingDecision.declinedPlayerIds ?? []).includes(sdkPlayerId)
   const canMakePrimaryDecision = Boolean(
     pendingDecision
       && (pendingDecision.playerId === sdkPlayerId || isPublicOfferVisible)
       && !pendingDecision.primaryDecisionCompleted,
   )
-  const myPendingDecision = !isSpectator && (pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible || isSharedParticipant)
+  const myPendingDecision = !isSpectator && !hasDeclinedPublicOffer && (pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible || isSharedParticipant)
     ? pendingDecision
     : null
   const readOnlyPendingDecision = pendingDecision && !myPendingDecision && pendingDecision.playerId !== sdkPlayerId && !isPublicOfferVisible
@@ -558,6 +651,7 @@ export default function GamePage() {
     ? buildPendingDecisionEventCard(readOnlyPendingDecision, activeEventCard, readOnlyPendingPlayer)
     : null
   const readOnlyEventCard = activeEventCard && !myPendingDecision && !readOnlyPendingDecision && !pendingAuction ? activeEventCard : null
+  const activeEventDecisionKey = readOnlyEventCard ? `event:${readOnlyEventCard.id}` : null
   const isChoosingDealDeck = myPendingDecision?.decisionOptions?.some(option => option.action === 'chooseDealDeck') ?? false
   const isDealCardDecision = myPendingDecision?.decisionType === 'dealCard'
     || myPendingDecision?.decisionType === 'dealOffer'
@@ -565,7 +659,13 @@ export default function GamePage() {
   const dealCardOption = myPendingDecision?.decisionOptions?.find(option => option.action === 'buyDeal' || option.action === 'acceptDealOffer')
   const decisionKey = pendingDecisionIdentity
   const isDecisionCollapsed = Boolean(decisionKey && collapsedDecisionKey === decisionKey)
-  const isMyTurn = !isSpectator && gameState?.phase === 'playing' && gameState.currentPlayerId === sdkPlayerId
+  const isAuctionCollapsed = Boolean(auctionDecisionKey && collapsedDecisionKey === auctionDecisionKey)
+  const isEventCollapsed = Boolean(activeEventDecisionKey && collapsedDecisionKey === activeEventDecisionKey)
+  const isMyTurn = !isSpectator
+    && gameState?.phase === 'playing'
+    && gameState.currentPlayerId === sdkPlayerId
+    && !dashboardPlayer.skipNextTurn
+    && (dashboardPlayer.skipTurnsRemaining ?? 0) <= 0
   const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
   const passiveIncome = (dashboardPlayer.assets ?? [])
     .reduce((sum, asset) => sum + (asset.cashFlow ?? 0), 0)
@@ -666,7 +766,7 @@ export default function GamePage() {
         <Dashboard
           playerName={dashboardPlayer.displayName}
           playerRole={roleData[dashboardPlayer.roleId]?.name ?? data.name}
-          moveNumber={gameState?.turnCount ?? 0}
+          moveNumber={(gameState?.turnCount ?? 0) + 1}
           stats={{
             cash: dashboardPlayer.cash,
             salary: salaryIncome,
@@ -686,7 +786,7 @@ export default function GamePage() {
           accruedSalary={dashboardPlayer.accruedSalary ?? 0}
           salaryPayoutMode={salaryPayoutMode}
           onPayLiability={handlePayLiability}
-          onTakeCredit={handleTakeCredit}
+          onTakeCredit={handleRequestCredit}
           onClaimSalary={handleClaimSalary}
           icon={icons[`/src/assets/roles/${dashboardPlayer.roleId || roleName}.svg`]}
         />
@@ -808,7 +908,7 @@ export default function GamePage() {
         </button>
       </nav>
 
-      {isDecisionCollapsed && pendingDecision && (
+      {((isDecisionCollapsed && pendingDecision) || (isAuctionCollapsed && pendingAuction) || (isEventCollapsed && readOnlyEventCard)) && (
         <button
           type="button"
           className={styles.restoreDecisionButton}
@@ -818,11 +918,12 @@ export default function GamePage() {
         </button>
       )}
 
-      {readOnlyEventCard && (
+      {readOnlyEventCard && !isEventCollapsed && (
         <div className={styles.actionOverlay}>
           <EventCard
             card={readOnlyEventCard}
             onClose={() => setActiveEventCard(null)}
+            onMinimize={() => setCollapsedDecisionKey(activeEventDecisionKey)}
           />
         </div>
       )}
@@ -850,7 +951,7 @@ export default function GamePage() {
         </div>
       )}
 
-      {pendingAuction && (
+      {pendingAuction && !isAuctionCollapsed && (
         <div className={styles.actionOverlay}>
           <AuctionCard
             auction={pendingAuction}
@@ -861,6 +962,7 @@ export default function GamePage() {
             onBid={handleAuctionBid}
             onPass={handleAuctionPass}
             onComplete={handleAuctionComplete}
+            onMinimize={() => setCollapsedDecisionKey(auctionDecisionKey)}
           />
         </div>
       )}
@@ -868,6 +970,7 @@ export default function GamePage() {
       {myPendingDecision && !isDecisionCollapsed && (
         <div className={styles.actionOverlay}>
           <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
+            {myPendingDecision.expiresAt && <DecisionProgress decision={myPendingDecision} />}
             {isDealCardDecision && dealCardOption ? (
               <DealDecisionCard
                 option={dealCardOption}
@@ -884,7 +987,7 @@ export default function GamePage() {
                 onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
                 onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
                 onSkip={() => handleDecisionAction('skip', 'skip')}
-                onTakeCredit={handleTakeCredit}
+                onTakeCredit={handleRequestCredit}
                 canMakePrimaryDecision={canMakePrimaryDecision}
                 sharedSaleOptions={sharedDecisionOptions}
                 sharedSaleCompleted={sharedDecisionCompleted}
@@ -893,6 +996,7 @@ export default function GamePage() {
                   ? () => handleDecisionAction('complete', 'completeSharedDecision')
                   : undefined}
                 onMinimize={() => setCollapsedDecisionKey(decisionKey)}
+                canDeclineOffer={(myPendingDecision.eligiblePlayerIds ?? []).includes(sdkPlayerId)}
               />
             ) : isChoosingDealDeck ? (
               <DealDeckChoice
@@ -953,6 +1057,85 @@ export default function GamePage() {
           </div>
         </div>
       )}
+      {amountDialog && (
+        <MoneyAmountDialog
+          title={amountDialog.title}
+          max={amountDialog.max}
+          paymentPreview={amountDialog.kind === 'credit'}
+          onCancel={() => setAmountDialog(null)}
+          onConfirm={handleAmountConfirm}
+        />
+      )}
+    </div>
+  )
+}
+
+function MoneyAmountDialog({
+  title,
+  max,
+  paymentPreview,
+  onCancel,
+  onConfirm,
+}: {
+  title: string
+  max: number
+  paymentPreview: boolean
+  onCancel: () => void
+  onConfirm: (amount: number) => void
+}) {
+  const [amount, setAmount] = useState(Math.max(1, max))
+  const validAmount = isValidMoneyAmount(amount, max)
+
+  return (
+    <div className={styles.amountDialogOverlay} role="presentation">
+      <section className={styles.amountDialog} role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
+        <p>Доступно до {formatMoney(max)}</p>
+        <label>
+          <span>Сумма</span>
+          <input
+            type="number"
+            min={1}
+            max={max}
+            step={1}
+            value={amount}
+            autoFocus
+            onChange={event => setAmount(Math.floor(Number(event.target.value)))}
+          />
+        </label>
+        <button type="button" className={styles.amountMaxButton} onClick={() => setAmount(max)}>Вся сумма</button>
+        {paymentPreview && validAmount && (
+          <p className={styles.amountPreview}>Ежемесячный платёж: <strong>{formatMoney(Math.ceil(amount * 0.1))}</strong></p>
+        )}
+        <div className={styles.amountDialogActions}>
+          <button type="button" onClick={onCancel}>Отмена</button>
+          <button type="button" disabled={!validAmount} onClick={() => onConfirm(amount)}>Подтвердить</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function DecisionProgress({ decision }: { decision: NonNullable<GameState['pendingDecision']> }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 250)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const expiresAt = decision.expiresAt ? new Date(decision.expiresAt).getTime() : now
+  const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000))
+  const total = decision.decisionType === 'dealPublicOffer'
+    ? decision.eligiblePlayerIds.length
+    : Object.keys(decision.playerDecisionOptions ?? {}).length
+  const completed = decision.decisionType === 'dealPublicOffer'
+    ? decision.declinedPlayerIds.length
+    : decision.completedPlayerIds.length
+
+  return (
+    <div className={styles.decisionProgress} role="status">
+      <span>Ответили: {Math.min(completed, total)} из {total}</span>
+      <strong>{seconds} сек.</strong>
     </div>
   )
 }
@@ -999,7 +1182,7 @@ function EventCard({
   return (
     <article className={`${styles.eventCard} ${toneClass}`}>
       {onMinimize && (
-        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Свернуть</button>
+        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Скрыть карточку</button>
       )}
       <div className={styles.eventCardMain}>
         <div className={styles.eventCardHeader}>
@@ -1189,6 +1372,7 @@ function DealDecisionCard({
   onSellSharedAsset,
   onCompleteSharedDecision,
   onMinimize,
+  canDeclineOffer = false,
 }: {
   option: DecisionOption
   cash: number
@@ -1212,6 +1396,7 @@ function DealDecisionCard({
   onSellSharedAsset?: (option: DecisionOption, quantity: number) => void
   onCompleteSharedDecision?: () => void
   onMinimize?: () => void
+  canDeclineOffer?: boolean
 }) {
   const [activePanel, setActivePanel] = useState<'card' | 'actions'>('card')
   const offerPrice = option.offerPrice ?? 0
@@ -1259,7 +1444,7 @@ function DealDecisionCard({
   return (
     <div className={`${styles.dealDecisionCard} ${isActionsPanel ? styles.dealDecisionCardActionView : cardClass}`}>
       {onMinimize && (
-        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Свернуть</button>
+        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Скрыть карточку</button>
       )}
       {isActionsPanel ? (
         <div className={styles.dealActionPanel}>
@@ -1420,6 +1605,16 @@ function DealDecisionCard({
               Пропустить
             </button>
           )}
+          {isPublicOffer && canDeclineOffer && (
+            <button
+              className={`${styles.dealActionButton} ${styles.dealActionButtonSkip}`}
+              type="button"
+              onClick={() => onSkip?.()}
+              disabled={disabled}
+            >
+              Отказаться
+            </button>
+          )}
         </div>
       ) : (
         <div className={styles.dealDecisionMain}>
@@ -1486,6 +1681,7 @@ function AuctionCard({
   onBid,
   onPass,
   onComplete,
+  onMinimize,
 }: {
   auction: FinGuruAuctionState
   players: any[]
@@ -1495,6 +1691,7 @@ function AuctionCard({
   onBid: (bid: number) => void
   onPass: () => void
   onComplete: () => void
+  onMinimize?: () => void
 }) {
   const deal = auction.dealCard
   const seller = players.find(player => player.playerId === auction.sellerPlayerId)
@@ -1530,6 +1727,9 @@ function AuctionCard({
 
   return (
     <div className={`${styles.dealDecisionCard} ${styles.auctionCard}`}>
+      {onMinimize && (
+        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Скрыть карточку</button>
+      )}
       <div className={styles.dealDecisionMain}>
         <div className={styles.dealDecisionContent}>
           <span className={styles.dealDecisionMeta}>Аукцион{meta ? ` · ${meta}` : ''}</span>
@@ -1891,11 +2091,60 @@ function formatDelta(value: number): string {
   return '0 ₽'
 }
 
+function mapServerHistory(entries: FinGuruHistoryEntry[] = []) {
+  return sortHistoryByTurn(entries)
+    .map(entry => ({
+    key: entry.id,
+    turnNumber: entry.turnNumber,
+    playerName: entry.playerName || entry.playerId,
+    playerColor: entry.playerColor || '#999',
+    moveLabel: entry.title || 'Действие',
+    time: new Date(entry.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    transactionType: entry.title || getFallbackEventTitle(entry.eventType, ''),
+    transactionTypeColor: getSectorColor(entry.eventType),
+    action: entry.message,
+    actionColor: entry.eventType === 'skip' ? 'rgb(255, 59, 48)' : 'rgb(52, 199, 89)',
+    finances: [
+      entry.cashChange !== 0 ? {
+        label: 'Наличные',
+        change: formatDelta(entry.cashChange),
+        changeColor: entry.cashChange >= 0 ? 'rgb(52, 199, 89)' : 'rgb(255, 59, 48)',
+        result: formatMoney(entry.newCash),
+        resultColor: 'rgb(0, 0, 0)',
+      } : null,
+      entry.incomeChange !== 0 ? {
+        label: 'Доход',
+        change: formatDelta(entry.incomeChange),
+        changeColor: entry.incomeChange >= 0 ? 'rgb(52, 199, 89)' : 'rgb(255, 59, 48)',
+        result: formatMoney(entry.newIncome),
+        resultColor: 'rgb(0, 0, 0)',
+      } : null,
+      entry.expensesChange !== 0 ? {
+        label: 'Расходы',
+        change: formatDelta(entry.expensesChange),
+        changeColor: entry.expensesChange <= 0 ? 'rgb(52, 199, 89)' : 'rgb(255, 59, 48)',
+        result: formatMoney(entry.newExpenses),
+        resultColor: 'rgb(0, 0, 0)',
+      } : null,
+    ].filter(Boolean),
+    }))
+}
+
+function getPlayerPositions(players: GameState['players']) {
+  return Object.fromEntries(players.map(player => [
+    player.playerId,
+    { position: player.position, bigPosition: player.bigPosition ?? 0 },
+  ]))
+}
+
 function getStatusMessage(state: GameState, playerId: string): string {
   if (state.phase === 'gameOver') return 'Игра завершена'
   if (state.phase === 'dreamSelection') return 'Выбор мечт'
   if (state.phase === 'awaitingDecision') {
-    if (state.pendingDecision?.decisionType === 'dealPublicOffer') return 'Сделка доступна всем'
+    if (state.pendingDecision?.decisionType === 'dealPublicOffer') {
+      if (state.pendingDecision.declinedPlayerIds.includes(playerId)) return 'Вы отказались, ждём остальных'
+      return 'Сделка доступна всем'
+    }
     const hasSharedDecision = Object.prototype.hasOwnProperty.call(state.pendingDecision?.playerDecisionOptions ?? {}, playerId)
     const sharedCompleted = state.pendingDecision?.completedPlayerIds?.includes(playerId)
     if (hasSharedDecision && !sharedCompleted) return 'Продайте активы или нажмите «Готово»'

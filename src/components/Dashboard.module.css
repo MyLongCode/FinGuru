@@ -197,6 +197,29 @@
   padding: 0 4px;
 }
 
+.skipAlert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 2px solid rgba(255, 59, 48, 0.5);
+  border-radius: 14px;
+  background: rgba(255, 59, 48, 0.14);
+  color: #b42318;
+}
+
+.skipAlert strong {
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.skipAlert span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .statusChip {
   min-height: 28px;
   display: flex;

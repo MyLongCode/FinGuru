@@ -231,8 +231,28 @@ export interface PendingDecision {
   playerDecisionOptions: Record<string, DecisionOption[]>
   completedPlayerIds: string[]
   primaryDecisionCompleted: boolean
+  eligiblePlayerIds: string[]
+  declinedPlayerIds: string[]
   createdAt?: string
   expiresAt?: string | null
+}
+
+export interface FinGuruHistoryEntry {
+  id: string
+  turnNumber: number
+  playerId: string
+  playerName: string
+  playerColor: string
+  eventType: string
+  title: string
+  message: string
+  cashChange: number
+  incomeChange: number
+  expensesChange: number
+  newCash: number
+  newIncome: number
+  newExpenses: number
+  timestamp: string
 }
 
 export interface FinGuruAuctionState {
@@ -302,6 +322,7 @@ export interface GameState {
   pendingAuction?: FinGuruAuctionState | null
   currentPlayerId: string
   turnCount: number
+  history: FinGuruHistoryEntry[]
 }
 
 const DEFAULT_FIN_GURU_DREAMS: DreamState[] = [
@@ -418,8 +439,30 @@ function normalizePendingDecision(pending: any): PendingDecision | null {
     ),
     completedPlayerIds: pending.completedPlayerIds ?? pending.CompletedPlayerIds ?? [],
     primaryDecisionCompleted: pending.primaryDecisionCompleted ?? pending.PrimaryDecisionCompleted ?? false,
+    eligiblePlayerIds: pending.eligiblePlayerIds ?? pending.EligiblePlayerIds ?? [],
+    declinedPlayerIds: pending.declinedPlayerIds ?? pending.DeclinedPlayerIds ?? [],
     createdAt: pending.createdAt ?? pending.CreatedAt,
     expiresAt: pending.expiresAt ?? pending.ExpiresAt ?? null,
+  }
+}
+
+function normalizeHistoryEntry(entry: any): FinGuruHistoryEntry {
+  return {
+    id: entry.id ?? entry.Id ?? '',
+    turnNumber: entry.turnNumber ?? entry.TurnNumber ?? 1,
+    playerId: entry.playerId ?? entry.PlayerId ?? '',
+    playerName: entry.playerName ?? entry.PlayerName ?? '',
+    playerColor: entry.playerColor ?? entry.PlayerColor ?? '#999',
+    eventType: entry.eventType ?? entry.EventType ?? '',
+    title: entry.title ?? entry.Title ?? '',
+    message: entry.message ?? entry.Message ?? '',
+    cashChange: entry.cashChange ?? entry.CashChange ?? 0,
+    incomeChange: entry.incomeChange ?? entry.IncomeChange ?? 0,
+    expensesChange: entry.expensesChange ?? entry.ExpensesChange ?? 0,
+    newCash: entry.newCash ?? entry.NewCash ?? 0,
+    newIncome: entry.newIncome ?? entry.NewIncome ?? 0,
+    newExpenses: entry.newExpenses ?? entry.NewExpenses ?? 0,
+    timestamp: entry.timestamp ?? entry.Timestamp ?? new Date().toISOString(),
   }
 }
 
@@ -512,6 +555,7 @@ function normalizeGameState(data: any): GameState | null {
     pendingAuction: normalizePendingAuction(pendingAuction),
     currentPlayerId: data.currentPlayerId ?? data.CurrentPlayerId ?? '',
     turnCount: data.turnCount ?? data.TurnCount ?? 0,
+    history: (data.history ?? data.History ?? []).map(normalizeHistoryEntry),
   }
 }
 
@@ -564,6 +608,7 @@ export interface DiceRollResult {
   finalResults?: any[]
   settings?: FinGuruGameSettings
   players: PlayerGameState[]
+  history: FinGuruHistoryEntry[]
 }
 
 function normalizeDiceRoll(data: any): DiceRollResult {
@@ -594,6 +639,7 @@ function normalizeDiceRoll(data: any): DiceRollResult {
     finalResults: data.finalResults ?? data.FinalResults,
     settings: normalizeGameSettings(data.settings ?? data.Settings),
     players: (data.players ?? data.Players ?? []).map(normalizePlayerGameState),
+    history: (data.history ?? data.History ?? []).map(normalizeHistoryEntry),
   }
 }
 export function rollDice(sdk: AlgoGamesSDK, roomId: string, playerId: string, diceCount = 2): void {
@@ -775,16 +821,18 @@ export function payLiability(
   roomId: string,
   playerId: string,
   liabilityId: string,
+  amount = 0,
 ): void {
-  sdk.sendAction('finguru.payLiability', { roomId, playerId, liabilityId })
+  sdk.sendAction('finguru.payLiability', { roomId, playerId, liabilityId, amount })
 }
 
 export function takeCredit(
   sdk: AlgoGamesSDK,
   roomId: string,
   playerId: string,
+  amount: number,
 ): void {
-  sdk.sendAction('finguru.takeCredit', { roomId, playerId })
+  sdk.sendAction('finguru.takeCredit', { roomId, playerId, amount })
 }
 
 export function claimSalary(

@@ -1249,6 +1249,96 @@
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.24);
 }
 
+.decisionProgress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(255, 149, 0, 0.14);
+  color: #5c3a00;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.amountDialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.amountDialog {
+  width: min(420px, 100%);
+  padding: 24px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.amountDialog h2,
+.amountDialog p {
+  margin: 0 0 14px;
+}
+
+.amountDialog label {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.amountDialog input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid rgba(60, 60, 67, 0.25);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.amountMaxButton {
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: #077cff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.amountPreview {
+  margin-top: 16px !important;
+  color: #4f4f55;
+}
+
+.amountDialogActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.amountDialogActions button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.amountDialogActions button:last-child {
+  background: #077cff;
+  color: #fff;
+}
+
+.amountDialogActions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .sharedSaleSection {
   display: flex;
   flex-direction: column;

@@ -78,10 +78,12 @@ function MoneyCard({
 function Section({
   title,
   children,
+  summary,
   defaultExpanded = true,
 }: {
   title: string
   children: ReactNode
+  summary?: ReactNode
   defaultExpanded?: boolean
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
@@ -92,6 +94,7 @@ function Section({
         <span>{title}</span>
         <span className={`${styles.sectionArrow} ${expanded ? styles.sectionArrowOpen : ''}`}>⌄</span>
       </button>
+      {summary}
       {expanded && <div className={styles.sectionBody}>{children}</div>}
     </section>
   )
@@ -324,7 +327,9 @@ function LiabilitiesTable({
               <span className={styles.tableHead}>Долг ₽</span>
               <span className={styles.tableHead} />
               {group.map(liability => {
-                const canPay = cash >= liability.balance
+                const canPay = liability.liabilityType === 'bankLoan'
+                  ? cash > 0
+                  : cash >= liability.balance
                 return (
                   <div key={liability.id || liability.title} className={styles.tableRowLiability}>
                     <span>{liability.title || 'Пассив'}</span>
@@ -432,7 +437,8 @@ export default function Dashboard({
   const availableCredit = Math.max(0, stats.cashFlow * 10)
   const creditPayment = availableCredit > 0 ? Math.ceil(availableCredit * 0.1) : 0
   const canClaimSalary = salaryPayoutMode === 'manual' && accruedSalary > 0 && Boolean(onClaimSalary)
-  const statusItems = useMemo(() => statuses.slice(0, 3), [statuses])
+  const skipStatus = statuses.find(status => status.label === 'Пропуск хода')
+  const statusItems = useMemo(() => statuses.filter(status => status.label !== 'Пропуск хода').slice(0, 3), [statuses])
 
   return (
     <div className={styles.container}>
@@ -451,6 +457,13 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {skipStatus && (
+        <div className={styles.skipAlert} role="status">
+          <strong>{skipStatus.label}</strong>
+          <span>{skipStatus.description}</span>
+        </div>
+      )}
 
       {!assetsOnly && (
         <div className={styles.statsSection}>
@@ -495,26 +508,32 @@ export default function Dashboard({
         </div>
       )}
 
-      <Section title="Активы" defaultExpanded>
-        <SummaryStrip
+      <Section
+        title="Активы"
+        defaultExpanded
+        summary={<SummaryStrip
           items={[
             { label: 'Пассив. доход', value: formatCurrency(stats.passiveIncome), tone: 'passive' },
             { label: 'Стоимость', value: formatCurrency(assetValue), tone: 'income' },
             { label: 'Количество', value: `${assetQuantity} шт.` },
           ]}
-        />
+        />}
+      >
         <AssetsTable assets={assets} />
       </Section>
 
       {!assetsOnly && (
-        <Section title="Доходы" defaultExpanded>
-          <SummaryStrip
+        <Section
+          title="Доходы"
+          defaultExpanded
+          summary={<SummaryStrip
             items={[
               { label: 'Общий доход', value: formatCurrency(totalIncome), tone: 'income' },
               { label: 'Пассив. доход', value: formatCurrency(stats.passiveIncome), tone: 'passive' },
               { label: 'Денеж. поток', value: formatCurrency(stats.cashFlow), tone: 'flow' },
             ]}
-          />
+          />}
+        >
           <IncomeRows salary={stats.salary} assets={assets} />
         </Section>
       )}
