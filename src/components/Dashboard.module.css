@@ -333,6 +333,13 @@
   align-items: flex-start;
   gap: 2px;
   width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .groupChevron {
@@ -345,6 +352,12 @@
   color: rgba(60, 60, 67, 0.6);
   font-size: 11px;
   line-height: 1;
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+}
+
+.groupChevronOpen {
+  transform: rotate(0deg);
 }
 
 .groupSummary {

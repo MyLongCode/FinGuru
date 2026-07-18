@@ -11,6 +11,7 @@ import {
   getSdk,
   getGameState,
   rollDice,
+  restartGame,
   subscribeDiceRoll,
   subscribeGameStateUpdate,
   subscribeGameError,
@@ -58,6 +59,8 @@ export default function GamePage() {
   const params = new URLSearchParams(window.location.search)
   const roomId = params.get('roomId') ?? sessionStorage.getItem('roomId') ?? ''
   const sdkPlayerId = params.get('playerId') ?? sessionStorage.getItem('playerId') ?? contextPlayerId ?? ''
+  const isSpectator = params.get('spectator') === 'true'
+  const isHost = params.get('isHost') === 'true'
 
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [myColor, setMyColor] = useState<string>('#4CAF50')
@@ -68,12 +71,17 @@ export default function GamePage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [isRolling, setIsRolling] = useState(false)
   const [isResolvingDecision, setIsResolvingDecision] = useState(false)
+  const [isRestarting, setIsRestarting] = useState(false)
   const [lastRoll, setLastRoll] = useState<DiceRollResult | null>(null)
   const [statusMessage, setStatusMessage] = useState('Ждем состояние игры...')
   const [board, setBoard] = useState<any[] | null>(null)
   const [deals, setDeals] = useState<any[] | null>(null)
   const [assets, setAssets] = useState<any[] | null>(null)
   const [activeEventCard, setActiveEventCard] = useState<EventCardData | null>(null)
+  const [collapsedDecisionKey, setCollapsedDecisionKey] = useState<string | null>(null)
+  const pendingDecisionIdentity = gameState?.pendingDecision
+    ? `${gameState.pendingDecision.decisionType}:${gameState.pendingDecision.createdAt ?? ''}:${gameState.pendingDecision.decisionOptions?.[0]?.cardId ?? ''}`
+    : null
   const rollTimeoutRef = useRef<number | null>(null)
   const rollStartedAtRef = useRef<number>(0)
   const decisionTimeoutRef = useRef<number | null>(null)
@@ -429,9 +437,28 @@ export default function GamePage() {
     completeAuction(getSdk(), roomId, sdkPlayerId)
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
+  useEffect(() => {
+    const handleReplay = (event: MessageEvent) => {
+      if (event.data?.type === 'gameStarted' && gameState?.phase === 'gameOver') {
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener('message', handleReplay)
+    return () => window.removeEventListener('message', handleReplay)
+  }, [gameState?.phase])
+
+  useEffect(() => {
+    setCollapsedDecisionKey(null)
+  }, [pendingDecisionIdentity])
+
   if (!data) return <p>Роль не найдена</p>
 
-  const me = gameState?.players.find(p => p.playerId === sdkPlayerId)
+  const gamePlayers = gameState?.players ?? []
+  const inspectedPlayerId = selectedPlayerId && gamePlayers.some(player => player.playerId === selectedPlayerId)
+    ? selectedPlayerId
+    : (isSpectator ? gamePlayers[0]?.playerId : (gamePlayers.some(player => player.playerId === sdkPlayerId) ? sdkPlayerId : gamePlayers[0]?.playerId))
+  const me = gamePlayers.find(p => p.playerId === (isSpectator ? inspectedPlayerId : sdkPlayerId))
   const serverDreams = gameState?.dreams ?? []
   const myDream = me?.dreamId != null ? serverDreams.find((d: any) => d.id === me.dreamId) ?? null : null
 
@@ -486,20 +513,37 @@ export default function GamePage() {
     })
 
   const isGameOver = gameState?.phase === 'gameOver'
-  const gamePlayers = gameState?.players ?? []
-  const inspectedPlayerId = selectedPlayerId && gamePlayers.some(player => player.playerId === selectedPlayerId)
-    ? selectedPlayerId
-    : (gamePlayers.some(player => player.playerId === sdkPlayerId) ? sdkPlayerId : gamePlayers[0]?.playerId)
+
+  const handleReturnToRoom = () => {
+    window.parent.postMessage({
+      type: 'room.returnToLobby',
+      payload: { roomId },
+    }, '*')
+  }
+
+  const handlePlayAgain = () => {
+    if (!isHost || isRestarting) return
+    setIsRestarting(true)
+    restartGame(getSdk(), roomId)
+  }
   const pendingDecision = gameState?.pendingDecision ?? null
   const pendingAuction = gameState?.pendingAuction ?? null
   const publicOfferOption = pendingDecision?.decisionType === 'dealPublicOffer'
     ? pendingDecision.decisionOptions?.find(option => option.action === 'acceptDealOffer')
     : undefined
   const isPublicOfferVisible = pendingDecision?.decisionType === 'dealPublicOffer' && publicOfferOption
-  const myPendingDecision = pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible
+  const sharedDecisionOptions = pendingDecision?.playerDecisionOptions?.[sdkPlayerId] ?? []
+  const isSharedParticipant = Boolean(pendingDecision && Object.prototype.hasOwnProperty.call(pendingDecision.playerDecisionOptions ?? {}, sdkPlayerId))
+  const sharedDecisionCompleted = pendingDecision?.completedPlayerIds?.includes(sdkPlayerId) ?? false
+  const canMakePrimaryDecision = Boolean(
+    pendingDecision
+      && (pendingDecision.playerId === sdkPlayerId || isPublicOfferVisible)
+      && !pendingDecision.primaryDecisionCompleted,
+  )
+  const myPendingDecision = !isSpectator && (pendingDecision?.playerId === sdkPlayerId || isPublicOfferVisible || isSharedParticipant)
     ? pendingDecision
     : null
-  const readOnlyPendingDecision = pendingDecision && pendingDecision.playerId !== sdkPlayerId && !isPublicOfferVisible
+  const readOnlyPendingDecision = pendingDecision && !myPendingDecision && pendingDecision.playerId !== sdkPlayerId && !isPublicOfferVisible
     ? pendingDecision
     : null
   const readOnlyPendingPlayer = readOnlyPendingDecision
@@ -519,7 +563,9 @@ export default function GamePage() {
     || myPendingDecision?.decisionType === 'dealOffer'
     || myPendingDecision?.decisionType === 'dealPublicOffer'
   const dealCardOption = myPendingDecision?.decisionOptions?.find(option => option.action === 'buyDeal' || option.action === 'acceptDealOffer')
-  const isMyTurn = gameState?.phase === 'playing' && gameState.currentPlayerId === sdkPlayerId
+  const decisionKey = pendingDecisionIdentity
+  const isDecisionCollapsed = Boolean(decisionKey && collapsedDecisionKey === decisionKey)
+  const isMyTurn = !isSpectator && gameState?.phase === 'playing' && gameState.currentPlayerId === sdkPlayerId
   const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
   const passiveIncome = (dashboardPlayer.assets ?? [])
     .reduce((sum, asset) => sum + (asset.cashFlow ?? 0), 0)
@@ -593,10 +639,33 @@ export default function GamePage() {
 
   return (
     <div className={`${styles.gamePage} ${styles[`mobileView_${mobileView}`]}`}>
+      {isSpectator && <div className={styles.spectatorBanner}>Режим наблюдателя · выберите игрока справа для просмотра</div>}
+      {isGameOver && (
+        <div className={styles.gameOverOverlay}>
+          <div className={styles.gameOverModal}>
+            <h2>Игра завершена</h2>
+            <p>Вернитесь в комнату или начните новую партию.</p>
+            {isRestarting ? (
+              <div className={styles.gameOverLoading}>Запускаем новую игру...</div>
+            ) : (
+              <div className={styles.gameOverActions}>
+                {isHost && !isSpectator && (
+                  <button type="button" className={styles.playAgainButton} onClick={handlePlayAgain}>
+                    Играть снова
+                  </button>
+                )}
+                <button type="button" className={styles.returnRoomButton} onClick={handleReturnToRoom}>
+                  Выйти в комнату
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className={styles.dashboardColumn}>
         <Dashboard
           playerName={dashboardPlayer.displayName}
-          playerRole={data.name}
+          playerRole={roleData[dashboardPlayer.roleId]?.name ?? data.name}
           moveNumber={gameState?.turnCount ?? 0}
           stats={{
             cash: dashboardPlayer.cash,
@@ -613,13 +682,13 @@ export default function GamePage() {
           assets={dashboardPlayer.assets ?? []}
           liabilities={dashboardPlayer.liabilities ?? []}
           cash={dashboardPlayer.cash}
-          disabled={isResolvingDecision || gameState?.phase === 'gameOver'}
+          disabled={isSpectator || isResolvingDecision || gameState?.phase === 'gameOver'}
           accruedSalary={dashboardPlayer.accruedSalary ?? 0}
           salaryPayoutMode={salaryPayoutMode}
           onPayLiability={handlePayLiability}
           onTakeCredit={handleTakeCredit}
           onClaimSalary={handleClaimSalary}
-          icon={icons[`/src/assets/roles/${roleName}.svg`]}
+          icon={icons[`/src/assets/roles/${dashboardPlayer.roleId || roleName}.svg`]}
         />
       </div>
 
@@ -739,6 +808,16 @@ export default function GamePage() {
         </button>
       </nav>
 
+      {isDecisionCollapsed && pendingDecision && (
+        <button
+          type="button"
+          className={styles.restoreDecisionButton}
+          onClick={() => setCollapsedDecisionKey(null)}
+        >
+          {isSharedParticipant && !sharedDecisionCompleted ? 'Требуется действие · ' : ''}Показать карточку
+        </button>
+      )}
+
       {readOnlyEventCard && (
         <div className={styles.actionOverlay}>
           <EventCard
@@ -748,9 +827,9 @@ export default function GamePage() {
         </div>
       )}
 
-      {readOnlyPendingDecision && (
+      {readOnlyPendingDecision && !isDecisionCollapsed && (
         <div className={styles.actionOverlay}>
-          <div className={`${styles.actionModal} ${styles.dealActionModal}`}>
+          <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${styles.dealActionModal}`}>
             {isReadOnlyDealCard && readOnlyDecisionOption ? (
               <DealDecisionCard
                 option={readOnlyDecisionOption}
@@ -762,9 +841,10 @@ export default function GamePage() {
                 disabled
                 readOnly
                 currentCashFlow={cashFlow}
+                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
               />
             ) : readOnlyPendingEventCard ? (
-              <EventCard card={readOnlyPendingEventCard} hideActions />
+              <EventCard card={readOnlyPendingEventCard} hideActions onMinimize={() => setCollapsedDecisionKey(decisionKey)} />
             ) : null}
           </div>
         </div>
@@ -777,7 +857,7 @@ export default function GamePage() {
             players={gamePlayers}
             currentPlayerId={sdkPlayerId}
             cash={dashboardPlayer.cash}
-            disabled={isResolvingDecision}
+            disabled={isSpectator || isResolvingDecision}
             onBid={handleAuctionBid}
             onPass={handleAuctionPass}
             onComplete={handleAuctionComplete}
@@ -785,9 +865,9 @@ export default function GamePage() {
         </div>
       )}
 
-      {myPendingDecision && (
+      {myPendingDecision && !isDecisionCollapsed && (
         <div className={styles.actionOverlay}>
-          <div className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
+          <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
             {isDealCardDecision && dealCardOption ? (
               <DealDecisionCard
                 option={dealCardOption}
@@ -805,6 +885,14 @@ export default function GamePage() {
                 onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
                 onSkip={() => handleDecisionAction('skip', 'skip')}
                 onTakeCredit={handleTakeCredit}
+                canMakePrimaryDecision={canMakePrimaryDecision}
+                sharedSaleOptions={sharedDecisionOptions}
+                sharedSaleCompleted={sharedDecisionCompleted}
+                onSellSharedAsset={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
+                onCompleteSharedDecision={isSharedParticipant
+                  ? () => handleDecisionAction('complete', 'completeSharedDecision')
+                  : undefined}
+                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
               />
             ) : isChoosingDealDeck ? (
               <DealDeckChoice
@@ -825,7 +913,16 @@ export default function GamePage() {
                   cashChange: activeEventCard?.cashChange,
                   newCash: activeEventCard?.newCash,
                 }}
-                actions={
+                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
+                actions={myPendingDecision.decisionType === 'marketCard' && isSharedParticipant ? (
+                  <SharedSaleActions
+                    options={sharedDecisionOptions}
+                    completed={sharedDecisionCompleted}
+                    disabled={isResolvingDecision}
+                    onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
+                    onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
+                  />
+                ) : (
                   <>
                     <div className={styles.eventActionGrid}>
                       {(myPendingDecision.decisionOptions ?? [])
@@ -850,7 +947,7 @@ export default function GamePage() {
                       {myPendingDecision.decisionType === 'deal' ? 'Пропустить сделку' : 'Пропустить'}
                     </button>
                   </>
-                }
+                )}
               />
             )}
           </div>
@@ -865,11 +962,13 @@ function EventCard({
   actions,
   hideActions = false,
   onClose,
+  onMinimize,
 }: {
   card: EventCardData
   actions?: ReactNode
   hideActions?: boolean
   onClose?: () => void
+  onMinimize?: () => void
 }) {
   const toneClass = styles[`eventCard_${getEventTone(card.sectorType)}`]
   const details = [
@@ -899,6 +998,9 @@ function EventCard({
 
   return (
     <article className={`${styles.eventCard} ${toneClass}`}>
+      {onMinimize && (
+        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Свернуть</button>
+      )}
       <div className={styles.eventCardMain}>
         <div className={styles.eventCardHeader}>
           <span>{card.sectorLabel || getFallbackEventTitle(card.sectorType, '')}</span>
@@ -987,6 +1089,83 @@ function DealDeckChoice({
   )
 }
 
+function SharedSaleActions({
+  options,
+  completed,
+  disabled,
+  onSell,
+  onComplete,
+}: {
+  options: DecisionOption[]
+  completed: boolean
+  disabled: boolean
+  onSell: (option: DecisionOption, quantity: number) => void
+  onComplete: () => void
+}) {
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [hasSold, setHasSold] = useState(false)
+
+  if (completed) {
+    return <div className={styles.sharedSaleWaiting}>Ваш ответ принят. Ждём остальных игроков.</div>
+  }
+
+  return (
+    <section className={styles.sharedSaleSection}>
+      <h3>Продать свои активы</h3>
+      {options.length > 0 ? (
+        <div className={styles.sharedSaleList}>
+          {options.map(option => {
+            const maximum = Math.max(1, option.availableQuantity || 1)
+            const selectedQuantity = Math.max(1, Math.min(maximum, quantities[option.option] ?? maximum))
+            const saleTotal = option.salePerUnit
+              ? option.saleUnitPrice * selectedQuantity
+              : option.offerPrice
+            return (
+              <article className={styles.sharedSaleItem} key={option.option}>
+                <strong>{option.title.replace(/^Продать\s+/i, '')}</strong>
+                <span>Куплено: {formatMoney(option.purchaseUnitPrice)}{maximum > 1 ? ' за шт.' : ''}</span>
+                <span>Продажа: {formatMoney(option.salePerUnit ? option.saleUnitPrice : option.offerPrice)}{option.salePerUnit ? ' за шт.' : ''}</span>
+                {option.salePerUnit && maximum > 1 && (
+                  <label className={styles.sharedSaleQuantity}>
+                    <span>Количество</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={maximum}
+                      value={selectedQuantity}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const value = Math.floor(Number(event.target.value))
+                        if (!Number.isFinite(value)) return
+                        setQuantities(current => ({ ...current, [option.option]: Math.max(1, Math.min(maximum, value)) }))
+                      }}
+                    />
+                  </label>
+                )}
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    setHasSold(true)
+                    onSell(option, selectedQuantity)
+                  }}
+                >
+                  Продать за {formatMoney(saleTotal)}
+                </button>
+              </article>
+            )
+          })}
+        </div>
+      ) : (
+        <p className={styles.sharedSaleEmpty}>Подходящих активов больше нет.</p>
+      )}
+      <button className={styles.sharedSaleComplete} type="button" disabled={disabled} onClick={onComplete}>
+        {hasSold ? 'Готово' : 'Пропустить'}
+      </button>
+    </section>
+  )
+}
+
 function DealDecisionCard({
   option,
   cash,
@@ -1004,6 +1183,12 @@ function DealDecisionCard({
   onAuction,
   onSkip,
   onTakeCredit,
+  sharedSaleOptions = [],
+  sharedSaleCompleted = false,
+  canMakePrimaryDecision = true,
+  onSellSharedAsset,
+  onCompleteSharedDecision,
+  onMinimize,
 }: {
   option: DecisionOption
   cash: number
@@ -1021,6 +1206,12 @@ function DealDecisionCard({
   onAuction?: () => void
   onSkip?: () => void
   onTakeCredit?: () => void
+  sharedSaleOptions?: DecisionOption[]
+  sharedSaleCompleted?: boolean
+  canMakePrimaryDecision?: boolean
+  onSellSharedAsset?: (option: DecisionOption, quantity: number) => void
+  onCompleteSharedDecision?: () => void
+  onMinimize?: () => void
 }) {
   const [activePanel, setActivePanel] = useState<'card' | 'actions'>('card')
   const offerPrice = option.offerPrice ?? 0
@@ -1039,7 +1230,7 @@ function DealDecisionCard({
   const isBigDeal = option.cardType === 'bigDeal' || option.option.startsWith('kru-')
   const isRealEstate = option.dealType.toLowerCase().includes('недвиж')
   const canTrade = !isOffer && !isRealEstate && players.some(player => player.playerId !== currentPlayerId)
-  const canAcceptOffer = !isOwnPublicOffer
+  const canAcceptOffer = !isOwnPublicOffer && canMakePrimaryDecision
   const cardClass = isBigDeal ? styles.dealDecisionCardBig : styles.dealDecisionCardSmall
   const isActionsPanel = !readOnly && activePanel === 'actions'
   const dealTitle = isBigDeal ? 'Крупная сделка' : 'Мелкая сделка'
@@ -1067,11 +1258,14 @@ function DealDecisionCard({
 
   return (
     <div className={`${styles.dealDecisionCard} ${isActionsPanel ? styles.dealDecisionCardActionView : cardClass}`}>
+      {onMinimize && (
+        <button className={styles.cardMinimizeButton} type="button" onClick={onMinimize}>Свернуть</button>
+      )}
       {isActionsPanel ? (
         <div className={styles.dealActionPanel}>
           <h2 className={styles.dealActionTitle}>{dealTitle}</h2>
 
-          <section className={styles.dealActionSection}>
+          {canMakePrimaryDecision && <section className={styles.dealActionSection}>
             <h3>После покупки</h3>
             <div className={styles.dealActionRows}>
               <div className={styles.dealActionRow}>
@@ -1130,9 +1324,19 @@ function DealDecisionCard({
             {cannotAfford && canAcceptOffer && (
               <p className={styles.dealActionWarning}>Не хватает {formatMoney(totalCost - cash)}</p>
             )}
-          </section>
+          </section>}
 
-          {availableCredit > 0 && (
+          {onCompleteSharedDecision && (
+            <SharedSaleActions
+              options={sharedSaleOptions}
+              completed={sharedSaleCompleted}
+              disabled={disabled}
+              onSell={(saleOption, quantity) => onSellSharedAsset?.(saleOption, quantity)}
+              onComplete={onCompleteSharedDecision}
+            />
+          )}
+
+          {canMakePrimaryDecision && availableCredit > 0 && (
             <section className={styles.dealActionSection}>
               <h3>Доступен кредит {formatMoney(availableCredit)}</h3>
               <p className={styles.dealCreditHint}>
@@ -1149,7 +1353,7 @@ function DealDecisionCard({
             </section>
           )}
 
-          {canTrade && (
+          {canMakePrimaryDecision && canTrade && (
             <>
               <div className={styles.dealActionDivider} />
               <section className={styles.dealOffersSection}>
@@ -1206,7 +1410,7 @@ function DealDecisionCard({
             </>
           )}
 
-          {!isPublicOffer && (
+          {!isPublicOffer && canMakePrimaryDecision && (
             <button
               className={`${styles.dealActionButton} ${styles.dealActionButtonSkip}`}
               type="button"
@@ -1692,7 +1896,11 @@ function getStatusMessage(state: GameState, playerId: string): string {
   if (state.phase === 'dreamSelection') return 'Выбор мечт'
   if (state.phase === 'awaitingDecision') {
     if (state.pendingDecision?.decisionType === 'dealPublicOffer') return 'Сделка доступна всем'
-    if (state.pendingDecision?.playerId === playerId) return 'Выберите действие'
+    const hasSharedDecision = Object.prototype.hasOwnProperty.call(state.pendingDecision?.playerDecisionOptions ?? {}, playerId)
+    const sharedCompleted = state.pendingDecision?.completedPlayerIds?.includes(playerId)
+    if (hasSharedDecision && !sharedCompleted) return 'Продайте активы или нажмите «Готово»'
+    if (state.pendingDecision?.playerId === playerId && !state.pendingDecision.primaryDecisionCompleted) return 'Выберите действие'
+    if (hasSharedDecision && sharedCompleted) return 'Ваш ответ принят, ждём остальных'
     const player = state.players.find(p => p.playerId === state.pendingDecision?.playerId)
     return player ? `Решение принимает ${player.displayName}` : 'Ожидание решения'
   }

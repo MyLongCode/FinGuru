@@ -178,6 +178,7 @@ function RandomRoleRedirect() {
   const [searchParams] = useSearchParams()
   const roomId = searchParams.get('roomId') ?? sessionStorage.getItem('roomId') ?? ''
   const sdkPlayerId = searchParams.get('playerId') ?? sessionStorage.getItem('playerId') ?? ''
+  const isSpectator = searchParams.get('spectator') === 'true'
   const [randomRole] = useState(() => roleKeys[Math.floor(Math.random() * roleKeys.length)])
   const [checking, setChecking] = useState(true)
 
@@ -193,7 +194,7 @@ function RandomRoleRedirect() {
     getGameState(sdk, roomId).then(state => {
       clearTimeout(timeout)
       if (state?.phase === 'playing' || state?.phase === 'gameOver') {
-        const me = state.players.find(p => p.playerId === sdkPlayerId)
+        const me = isSpectator ? state.players[0] : state.players.find(p => p.playerId === sdkPlayerId)
         if (me?.roleId) {
           navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
           return
@@ -204,7 +205,7 @@ function RandomRoleRedirect() {
       clearTimeout(timeout)
       setChecking(false)
     })
-  }, [navigate, roomId, sdkPlayerId])
+  }, [navigate, roomId, sdkPlayerId, isSpectator])
 
   if (checking) return null
   return <Navigate to={`/role/${randomRole}`} replace />
@@ -235,6 +236,5 @@ function App() {
 }
 
 export default App
-
 
 

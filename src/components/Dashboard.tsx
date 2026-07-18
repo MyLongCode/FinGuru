@@ -203,6 +203,8 @@ function AssetGroupTable({ group, kind }: { group: FinGuruAsset[]; kind: string 
 }
 
 function AssetsTable({ assets }: { assets: FinGuruAsset[] }) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+
   if (assets.length === 0) {
     return <p className={styles.emptyText}>Активов пока нет</p>
   }
@@ -218,18 +220,24 @@ function AssetsTable({ assets }: { assets: FinGuruAsset[] }) {
       {Object.entries(grouped).map(([kind, group]) => {
         const passive = group.reduce((sum, asset) => sum + asset.cashFlow, 0)
         const value = group.reduce((sum, asset) => sum + asset.cost, 0)
+        const expanded = !collapsedGroups[kind]
 
         return (
           <div key={kind} className={styles.tableGroup}>
-            <div className={styles.groupHeader}>
-              <span className={styles.groupChevron}>⌄</span>
-              <div className={styles.groupSummary}>
+            <button
+              type="button"
+              className={styles.groupHeader}
+              aria-expanded={expanded}
+              onClick={() => setCollapsedGroups(current => ({ ...current, [kind]: !current[kind] }))}
+            >
+              <span className={`${styles.groupChevron} ${expanded ? styles.groupChevronOpen : ''}`}>⌄</span>
+              <span className={styles.groupSummary}>
                 <span>{getAssetGroupTitle(kind, group.length)}</span>
                 <strong className={styles.tone_passive}>{formatCurrency(passive)}</strong>
                 <strong className={styles.tone_income}>{formatCurrency(value)}</strong>
-              </div>
-            </div>
-            <AssetGroupTable group={group} kind={kind} />
+              </span>
+            </button>
+            {expanded && <AssetGroupTable group={group} kind={kind} />}
           </div>
         )
       })}

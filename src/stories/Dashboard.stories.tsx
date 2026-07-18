@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { expect, userEvent, within } from 'storybook/test'
 import Dashboard from '../components/Dashboard'
 
 const meta: Meta<typeof Dashboard> = {
@@ -82,5 +83,62 @@ export const Engineer: Story = {
         ],
       },
     ],
+  },
+}
+
+export const CollapsibleAssetGroups: Story = {
+  args: {
+    playerName: 'Тестовый игрок',
+    playerRole: 'Инженер',
+    moveNumber: 8,
+    stats: {
+      cash: 4200,
+      salary: 9500,
+      expenses: 8200,
+      passiveIncome: 1200,
+      cashFlow: 2500,
+    },
+    bigCircleTarget: 15001,
+    passiveIncomeProgress: 3000,
+    bigCircleRemaining: 12001,
+    statuses: [],
+    assets: [
+      {
+        id: 'stock-1',
+        title: 'Акции OK4U',
+        cardId: 'OK4U',
+        assetType: 'stock',
+        ticker: 'OK4U',
+        cost: 1500,
+        cashFlow: 0,
+        quantity: 50,
+        purchaseUnitPrice: 30,
+        purchaseTotalPrice: 1500,
+      },
+      {
+        id: 'home-1',
+        title: 'Квартира на продажу',
+        cardId: 'RE-1',
+        assetType: 'realEstate',
+        ticker: '',
+        cost: 40000,
+        cashFlow: 220,
+        quantity: 1,
+        purchaseUnitPrice: 40000,
+        purchaseTotalPrice: 40000,
+      },
+    ],
+    liabilities: [],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const stocksButton = canvas.getByRole('button', { name: /Акции/ })
+    const propertyButton = canvas.getByRole('button', { name: /Недвижимость/ })
+
+    await expect(stocksButton).toHaveAttribute('aria-expanded', 'true')
+    await expect(propertyButton).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(stocksButton)
+    await expect(stocksButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(propertyButton).toHaveAttribute('aria-expanded', 'true')
   },
 }

@@ -205,9 +205,12 @@ export interface FinGuruAsset {
   title: string
   cardId: string
   assetType: string
+  ticker: string
   cost: number
   cashFlow: number
   quantity: number
+  purchaseUnitPrice: number
+  purchaseTotalPrice: number
 }
 
 export interface FinGuruLiability {
@@ -225,7 +228,11 @@ export interface PendingDecision {
   sectorLabel: string
   options: string[]
   decisionOptions?: DecisionOption[]
+  playerDecisionOptions: Record<string, DecisionOption[]>
+  completedPlayerIds: string[]
+  primaryDecisionCompleted: boolean
   createdAt?: string
+  expiresAt?: string | null
 }
 
 export interface FinGuruAuctionState {
@@ -257,6 +264,11 @@ export interface DecisionOption {
   assetValue: number
   liabilityValue: number
   offerPrice: number
+  purchaseUnitPrice: number
+  purchaseTotalPrice: number
+  availableQuantity: number
+  saleUnitPrice: number
+  salePerUnit: boolean
   cashChange: number
   incomeChange: number
   expensesChange: number
@@ -370,9 +382,12 @@ function normalizePlayerGameState(player: any): PlayerGameState {
       title: asset.title ?? asset.Title ?? '',
       cardId: asset.cardId ?? asset.CardId ?? '',
       assetType: asset.assetType ?? asset.AssetType ?? '',
+      ticker: asset.ticker ?? asset.Ticker ?? '',
       cost: asset.cost ?? asset.Cost ?? 0,
       cashFlow: asset.cashFlow ?? asset.CashFlow ?? 0,
       quantity: asset.quantity ?? asset.Quantity ?? 1,
+      purchaseUnitPrice: asset.purchaseUnitPrice ?? asset.PurchaseUnitPrice ?? 0,
+      purchaseTotalPrice: asset.purchaseTotalPrice ?? asset.PurchaseTotalPrice ?? 0,
     })),
     liabilities: (player.liabilities ?? player.Liabilities ?? []).map((liability: any) => ({
       id: liability.id ?? liability.Id ?? '',
@@ -387,37 +402,24 @@ function normalizePlayerGameState(player: any): PlayerGameState {
 function normalizePendingDecision(pending: any): PendingDecision | null {
   if (!pending) return null
   const decisionOptions = pending.decisionOptions ?? pending.DecisionOptions ?? []
+  const rawPlayerOptions = pending.playerDecisionOptions ?? pending.PlayerDecisionOptions ?? {}
   return {
     playerId: pending.playerId ?? pending.PlayerId ?? '',
     decisionType: pending.decisionType ?? pending.DecisionType ?? '',
     sectorType: pending.sectorType ?? pending.SectorType ?? '',
     sectorLabel: pending.sectorLabel ?? pending.SectorLabel ?? '',
     options: pending.options ?? pending.Options ?? [],
-    decisionOptions: decisionOptions.map((option: any) => ({
-      option: option.option ?? option.Option ?? '',
-      action: option.action ?? option.Action ?? '',
-      cardId: option.cardId ?? option.CardId ?? '',
-      title: option.title ?? option.Title ?? '',
-      description: option.description ?? option.Description ?? '',
-      cardType: option.cardType ?? option.CardType ?? '',
-      dealType: option.dealType ?? option.DealType ?? '',
-      ticker: option.ticker ?? option.Ticker ?? '',
-      targetPlayerId: option.targetPlayerId ?? option.TargetPlayerId ?? '',
-      offeredByPlayerId: option.offeredByPlayerId ?? option.OfferedByPlayerId ?? '',
-      cost: option.cost ?? option.Cost ?? 0,
-      cashFlow: option.cashFlow ?? option.CashFlow ?? 0,
-      assetValue: option.assetValue ?? option.AssetValue ?? 0,
-      liabilityValue: option.liabilityValue ?? option.LiabilityValue ?? 0,
-      offerPrice: option.offerPrice ?? option.OfferPrice ?? 0,
-      cashChange: option.cashChange ?? option.CashChange ?? 0,
-      incomeChange: option.incomeChange ?? option.IncomeChange ?? 0,
-      expensesChange: option.expensesChange ?? option.ExpensesChange ?? 0,
-      roi: option.roi ?? option.Roi ?? '',
-      saleRange: option.saleRange ?? option.SaleRange ?? '',
-      logic: option.logic ?? option.Logic ?? '',
-      skipNextTurn: option.skipNextTurn ?? option.SkipNextTurn ?? false,
-    })),
+    decisionOptions: decisionOptions.map(normalizeDecisionOption),
+    playerDecisionOptions: Object.fromEntries(
+      Object.entries(rawPlayerOptions).map(([playerId, options]) => [
+        playerId,
+        (Array.isArray(options) ? options : []).map(normalizeDecisionOption),
+      ]),
+    ),
+    completedPlayerIds: pending.completedPlayerIds ?? pending.CompletedPlayerIds ?? [],
+    primaryDecisionCompleted: pending.primaryDecisionCompleted ?? pending.PrimaryDecisionCompleted ?? false,
     createdAt: pending.createdAt ?? pending.CreatedAt,
+    expiresAt: pending.expiresAt ?? pending.ExpiresAt ?? null,
   }
 }
 
@@ -438,6 +440,11 @@ function normalizeDecisionOption(option: any): DecisionOption {
     assetValue: option.assetValue ?? option.AssetValue ?? 0,
     liabilityValue: option.liabilityValue ?? option.LiabilityValue ?? 0,
     offerPrice: option.offerPrice ?? option.OfferPrice ?? 0,
+    purchaseUnitPrice: option.purchaseUnitPrice ?? option.PurchaseUnitPrice ?? 0,
+    purchaseTotalPrice: option.purchaseTotalPrice ?? option.PurchaseTotalPrice ?? 0,
+    availableQuantity: option.availableQuantity ?? option.AvailableQuantity ?? 0,
+    saleUnitPrice: option.saleUnitPrice ?? option.SaleUnitPrice ?? 0,
+    salePerUnit: option.salePerUnit ?? option.SalePerUnit ?? false,
     cashChange: option.cashChange ?? option.CashChange ?? 0,
     incomeChange: option.incomeChange ?? option.IncomeChange ?? 0,
     expensesChange: option.expensesChange ?? option.ExpensesChange ?? 0,
@@ -548,6 +555,8 @@ export interface DiceRollResult {
   turnCount?: number
   pendingDecision?: PendingDecision | null
   requiresDecision?: boolean
+  salaryPassCount?: number
+  salaryCashChange?: number
   eventTitle?: string
   eventMessage?: string
   phase?: string
@@ -576,6 +585,8 @@ function normalizeDiceRoll(data: any): DiceRollResult {
     turnCount: data.turnCount ?? data.TurnCount,
     pendingDecision: normalizePendingDecision(data.pendingDecision ?? data.PendingDecision),
     requiresDecision: data.requiresDecision ?? data.RequiresDecision ?? false,
+    salaryPassCount: data.salaryPassCount ?? data.SalaryPassCount ?? 0,
+    salaryCashChange: data.salaryCashChange ?? data.SalaryCashChange ?? 0,
     eventTitle: data.eventTitle ?? data.EventTitle ?? '',
     eventMessage: data.eventMessage ?? data.EventMessage ?? '',
     phase: data.phase ?? data.Phase,
@@ -587,6 +598,10 @@ function normalizeDiceRoll(data: any): DiceRollResult {
 }
 export function rollDice(sdk: AlgoGamesSDK, roomId: string, playerId: string, diceCount = 2): void {
   sdk.sendAction('finguru.rollDice', { roomId, playerId, diceCount });
+}
+
+export function restartGame(sdk: AlgoGamesSDK, roomId: string): void {
+  sdk.sendAction('finguru.reset', { roomId });
 }
 
 export function subscribeDiceRoll(
