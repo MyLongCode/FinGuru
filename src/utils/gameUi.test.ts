@@ -3,6 +3,8 @@ import {
   buildCellPath,
   formatRollResult,
   getBankCreditProjection,
+  getBigCircleDreamCell,
+  getForwardTrackDistance,
   getSpeedTrackTone,
   getTwoLineSpeedTrackTitle,
   isValidMoneyAmount,
@@ -26,6 +28,18 @@ describe('animated board path', () => {
 
   it('walks through zero on the big circle', () => {
     expect(buildCellPath(46, 4, 48)).toEqual([47, 0, 1, 2])
+  })
+
+  it('calculates the forward distance to a dream through zero', () => {
+    expect(getForwardTrackDistance(46, 3, 48)).toBe(5)
+    expect(getForwardTrackDistance(3, 3, 48)).toBe(0)
+  })
+
+  it('uses the same dream position mapping as the big circle', () => {
+    expect(getBigCircleDreamCell(1)).toBe(0)
+    expect(getBigCircleDreamCell(3)).toBe(2)
+    expect(getBigCircleDreamCell(8)).toBe(7)
+    expect(getBigCircleDreamCell(47)).toBe(46)
   })
 })
 

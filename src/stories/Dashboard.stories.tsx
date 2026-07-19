@@ -5,6 +5,7 @@ import Dashboard from '../components/Dashboard'
 const meta: Meta<typeof Dashboard> = {
   title: 'Dashboard',
   component: Dashboard,
+  parameters: { layout: 'fullscreen' },
 }
 
 export default meta

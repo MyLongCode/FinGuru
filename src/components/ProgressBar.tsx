@@ -1,4 +1,4 @@
-import { formatCurrency } from '../utils/format'
+import { formatFullCurrency as formatCurrency } from '../utils/format'
 import styles from './ProgressBar.module.css'
 
 interface ProgressBarProps {

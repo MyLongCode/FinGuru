@@ -10,6 +10,20 @@ export function buildCellPath(start: number, steps: number, trackSize: number): 
   return Array.from({ length: steps }, (_, index) => (start + index + 1) % trackSize)
 }
 
+export function getBigCircleDreamCell(dreamId: number): number {
+  if (!Number.isFinite(dreamId)) return 0
+
+  return Math.min(47, Math.max(0, Math.floor(dreamId) - 1))
+}
+
+export function getForwardTrackDistance(current: number, target: number, trackSize: number): number {
+  if (!Number.isInteger(trackSize) || trackSize <= 0) return 0
+
+  const normalizedCurrent = ((Math.floor(current) % trackSize) + trackSize) % trackSize
+  const normalizedTarget = ((Math.floor(target) % trackSize) + trackSize) % trackSize
+  return (normalizedTarget - normalizedCurrent + trackSize) % trackSize
+}
+
 export function sortHistoryByTurn<T extends { turnNumber: number; timestamp: string }>(entries: T[]): T[] {
   return [...entries].sort((left, right) => right.turnNumber - left.turnNumber
     || new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())

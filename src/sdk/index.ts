@@ -215,6 +215,7 @@ export interface FinGuruAsset {
 
 export interface FinGuruLiability {
   id: string
+  assetId?: string
   title: string
   liabilityType: string
   balance: number
@@ -425,6 +426,7 @@ function normalizePlayerGameState(player: any): PlayerGameState {
     })),
     liabilities: (player.liabilities ?? player.Liabilities ?? []).map((liability: any) => ({
       id: liability.id ?? liability.Id ?? '',
+      assetId: liability.assetId ?? liability.AssetId ?? '',
       title: liability.title ?? liability.Title ?? '',
       liabilityType: liability.liabilityType ?? liability.LiabilityType ?? '',
       balance: liability.balance ?? liability.Balance ?? 0,

@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import styles from './TopBar.module.css'
 import { bigSectors, type SectorConfig } from '../data/gameBoard'
+import { createRoulettePlan, normalizeCarouselIndex } from '../utils/roulette'
 
 export const grads = {
   pink: 'linear-gradient(90deg, #FF5BA7 0%, #D94BCE 100%)',
@@ -36,6 +37,12 @@ export interface TopBarItem {
 export type TopBarDreams = Record<number, TopBarDream | null | undefined>
 export type TopBarPlayers = Record<number, TopBarPlayer | null | undefined>
 
+export interface TopBarSpinRequest {
+  id: string
+  targetIndex: number
+  durationMs?: number
+}
+
 export interface TopBarProps {
   items?: TopBarItem[]
   sectors?: SectorConfig[]
@@ -43,7 +50,9 @@ export interface TopBarProps {
   players?: TopBarPlayers
   initialIndex?: number
   infinite?: boolean
+  spinRequest?: TopBarSpinRequest | null
   onActiveIndexChange?: (index: number) => void
+  onSpinComplete?: (requestId: string) => void
 }
 
 const COPIES = 3
@@ -165,19 +174,30 @@ export default function TopBar({
   players,
   initialIndex = 5,
   infinite = true,
+  spinRequest,
   onActiveIndexChange,
+  onSpinComplete,
 }: TopBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
   const activeIndexRef = useRef<number>(-1)
   const rafRef = useRef<number | null>(null)
   const boundaryTimerRef = useRef<number | null>(null)
+  const spinRafRef = useRef<number | null>(null)
+  const isSpinningRef = useRef(false)
+  const processedSpinIdRef = useRef<string | null>(null)
   const callbackRef = useRef(onActiveIndexChange)
+  const spinCompleteRef = useRef(onSpinComplete)
   const layoutRef = useRef<LayoutMetrics | null>(null)
+  const [isSpinning, setIsSpinning] = useState(false)
 
   useEffect(() => {
     callbackRef.current = onActiveIndexChange
   }, [onActiveIndexChange])
+
+  useEffect(() => {
+    spinCompleteRef.current = onSpinComplete
+  }, [onSpinComplete])
 
   const finalItems = useMemo(
     () => buildTopBarItems(items, sectors, dreams, players),
@@ -201,12 +221,14 @@ export default function TopBar({
   }, [])
 
   const measureLayout = (): LayoutMetrics | null => {
+    const container = containerRef.current
     const first = itemRefs.current[0]
     const second = itemRefs.current[1]
     const Nth = itemRefs.current[N]
-    if (!first || !second || !Nth) return null
-    const stride = second.offsetLeft - first.offsetLeft
-    const blockWidth = Nth.offsetLeft - first.offsetLeft
+    if (!container || !first) return null
+    const gap = Number.parseFloat(window.getComputedStyle(container).columnGap || '0') || 0
+    const stride = second ? second.offsetLeft - first.offsetLeft : first.offsetWidth + gap
+    const blockWidth = Nth ? Nth.offsetLeft - first.offsetLeft : stride * N
     const firstItemCenter = first.offsetLeft + first.offsetWidth / 2
     return { firstItemCenter, stride, blockWidth }
   }
@@ -215,9 +237,9 @@ export default function TopBar({
     const container = containerRef.current
     if (!container || N === 0) return
     layoutRef.current = measureLayout()
-    if (activeIndexRef.current === -1) {
-      activeIndexRef.current = safeInitialIndex
-    }
+    const needsInitialPosition = activeIndexRef.current === -1
+    if (!needsInitialPosition) return
+    activeIndexRef.current = safeInitialIndex
     if (!infinite) return
     const middleStart = itemRefs.current[N + safeInitialIndex]
     if (middleStart && layoutRef.current) {
@@ -259,6 +281,7 @@ export default function TopBar({
     }
 
     const onScroll = () => {
+      if (isSpinningRef.current) return
       if (rafRef.current === null) {
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null
@@ -274,6 +297,7 @@ export default function TopBar({
     }
 
     const onScrollEnd = () => {
+      if (isSpinningRef.current) return
       if (boundaryTimerRef.current !== null) {
         clearTimeout(boundaryTimerRef.current)
         boundaryTimerRef.current = null
@@ -307,8 +331,99 @@ export default function TopBar({
     }
   }, [N, infinite])
 
+  useEffect(() => {
+    const container = containerRef.current
+    const layout = layoutRef.current
+    if (!spinRequest || !container || !layout || N === 0) return
+    if (processedSpinIdRef.current === spinRequest.id) return
+    processedSpinIdRef.current = spinRequest.id
+
+    if (spinRafRef.current !== null) {
+      cancelAnimationFrame(spinRafRef.current)
+      spinRafRef.current = null
+    }
+    if (boundaryTimerRef.current !== null) {
+      window.clearTimeout(boundaryTimerRef.current)
+      boundaryTimerRef.current = null
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const fallbackIndex = activeIndexRef.current >= 0 ? activeIndexRef.current : 0
+    const roulettePlan = createRoulettePlan(
+      fallbackIndex,
+      spinRequest.targetIndex,
+      N,
+      reduceMotion,
+    )
+    const targetIndex = roulettePlan.targetIndex
+    let completed = false
+    const currentIndex = normalizeCarouselIndex(fallbackIndex, N)
+    const centerRenderedIndex = (renderedIndex: number) => (
+      layout.firstItemCenter + renderedIndex * layout.stride - container.clientWidth / 2
+    )
+    const reportIndex = (logicalIndex: number) => {
+      const normalized = normalizeCarouselIndex(logicalIndex, N)
+      if (activeIndexRef.current !== normalized) {
+        activeIndexRef.current = normalized
+        callbackRef.current?.(normalized)
+      }
+    }
+    const finish = () => {
+      completed = true
+      const normalizedRenderedIndex = infinite ? N + targetIndex : targetIndex
+      container.scrollLeft = centerRenderedIndex(normalizedRenderedIndex)
+      reportIndex(targetIndex)
+      isSpinningRef.current = false
+      setIsSpinning(false)
+      spinCompleteRef.current?.(spinRequest.id)
+    }
+
+    if (reduceMotion || !infinite) {
+      finish()
+      return
+    }
+
+    const travelCards = roulettePlan.travelCards
+    const startLeft = centerRenderedIndex(currentIndex)
+    const endLeft = centerRenderedIndex(currentIndex + travelCards)
+    const duration = Math.max(600, spinRequest.durationMs ?? 1800)
+    const startedAt = performance.now()
+    container.scrollLeft = startLeft
+    isSpinningRef.current = true
+    setIsSpinning(true)
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      const eased = 1 - Math.pow(1 - progress, 4)
+      container.scrollLeft = startLeft + (endLeft - startLeft) * eased
+      reportIndex(currentIndex + Math.round(travelCards * eased))
+      if (progress < 1) {
+        spinRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      spinRafRef.current = null
+      finish()
+    }
+
+    spinRafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (spinRafRef.current !== null) {
+        cancelAnimationFrame(spinRafRef.current)
+        spinRafRef.current = null
+      }
+      isSpinningRef.current = false
+      if (!completed && processedSpinIdRef.current === spinRequest.id) {
+        processedSpinIdRef.current = null
+      }
+    }
+  }, [N, infinite, spinRequest])
+
   return (
-    <div ref={containerRef} className={styles.container}>
+    <div
+      ref={containerRef}
+      className={`${styles.container} ${isSpinning ? styles.containerSpinning : ''}`}
+      aria-busy={isSpinning}
+    >
       {renderedItems.map((item, i) => (
         <div
           ref={setItemRef(i)}

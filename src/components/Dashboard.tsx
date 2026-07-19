@@ -1,10 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import styles from './Dashboard.module.css'
 import ProgressBar from './ProgressBar'
 import DashboardHeader from './DashboardHeader'
-import { formatCurrency } from '../utils/format'
+import { formatFullCurrency as formatCurrency } from '../utils/format'
 import { getBankCreditProjection } from '../utils/gameUi'
 import type { FinGuruAsset, FinGuruLiability } from '../sdk'
+import chevronIcon from '../assets/dashboard/chevron.svg'
+import profileMark from '../assets/dashboard/profile-mark.svg'
 
 export interface DashboardStats {
   cash: number
@@ -49,7 +51,6 @@ export interface DashboardProps {
   assetsOnly?: boolean
   accruedSalary?: number
   salaryPayoutMode?: 'automatic' | 'manual'
-  icon?: string
   onPayLiability?: (liabilityId: string) => void
   onTakeCredit?: () => void
   onClaimSalary?: () => void
@@ -68,10 +69,14 @@ function MoneyCard({
   tone: MoneyTone
   large?: boolean
 }) {
+  const formattedAmount = formatCurrency(amount)
+  const compactAmount = formattedAmount.length > 11
   return (
     <div className={`${styles.moneyCard} ${large ? styles.moneyCardLarge : ''} ${large ? styles[`moneyCard_${tone}`] : ''}`}>
       <span className={styles.moneyLabel}>{label}</span>
-      <strong className={`${styles.moneyAmount} ${styles[`tone_${tone}`]}`}>{formatCurrency(amount)}</strong>
+      <strong className={`${styles.moneyAmount} ${compactAmount ? styles.moneyAmountCompact : ''} ${styles[`tone_${tone}`]}`}>
+        {formattedAmount}
+      </strong>
     </div>
   )
 }
@@ -93,7 +98,11 @@ function Section({
     <section className={styles.financialSection}>
       <button className={styles.sectionHeader} type="button" onClick={() => setExpanded(!expanded)}>
         <span>{title}</span>
-        <span className={`${styles.sectionArrow} ${expanded ? styles.sectionArrowOpen : ''}`}>⌄</span>
+        <img
+          className={`${styles.sectionArrow} ${expanded ? styles.sectionArrowOpen : ''}`}
+          src={chevronIcon}
+          alt=""
+        />
       </button>
       {summary}
       {expanded && <div className={styles.sectionBody}>{children}</div>}
@@ -234,7 +243,11 @@ function AssetsTable({ assets }: { assets: FinGuruAsset[] }) {
               aria-expanded={expanded}
               onClick={() => setCollapsedGroups(current => ({ ...current, [kind]: !current[kind] }))}
             >
-              <span className={`${styles.groupChevron} ${expanded ? styles.groupChevronOpen : ''}`}>⌄</span>
+              <img
+                className={`${styles.groupChevron} ${expanded ? styles.groupChevronOpen : ''}`}
+                src={chevronIcon}
+                alt=""
+              />
               <span className={styles.groupSummary}>
                 <span>{getAssetGroupTitle(kind, group.length)}</span>
                 <strong className={styles.tone_passive}>{formatCurrency(passive)}</strong>
@@ -284,10 +297,6 @@ function ExpenseRows({
         <span>Постоянные расходы</span>
         <strong className={styles.tone_expense}>{formatCurrency(baseExpenses)}</strong>
       </div>
-      <div className={styles.plainRow}>
-        <span>Дети x0</span>
-        <strong className={styles.tone_expense}>{formatCurrency(0)}</strong>
-      </div>
     </div>
   )
 }
@@ -315,7 +324,7 @@ function LiabilitiesTable({
         return (
           <div key={type} className={styles.tableGroup}>
             <div className={styles.groupHeader}>
-              <span className={styles.groupChevron}>⌄</span>
+              <img className={`${styles.groupChevron} ${styles.groupChevronOpen}`} src={chevronIcon} alt="" />
               <div className={styles.groupSummary}>
                 <span>{getLiabilityGroupTitle(type, group.length)}</span>
                 <strong>{formatCurrency(balance)}</strong>
@@ -424,7 +433,6 @@ export default function Dashboard({
   assetsOnly = false,
   accruedSalary = 0,
   salaryPayoutMode = 'automatic',
-  icon,
   onPayLiability,
   onTakeCredit,
   onClaimSalary,
@@ -441,8 +449,7 @@ export default function Dashboard({
     ? getBankCreditProjection(totalIncome, stats.expenses, liabilities, availableCredit).combinedPayment
     : creditProjection.combinedPayment
   const canClaimSalary = salaryPayoutMode === 'manual' && accruedSalary > 0 && Boolean(onClaimSalary)
-  const skipStatus = statuses.find(status => status.label === 'Пропуск хода')
-  const statusItems = useMemo(() => statuses.filter(status => status.label !== 'Пропуск хода').slice(0, 3), [statuses])
+  const statusItems = statuses.slice(0, 3)
 
   return (
     <div className={styles.container}>
@@ -452,22 +459,8 @@ export default function Dashboard({
           playerRole={playerRole}
           moveNumber={moveNumber}
         />
-        {icon ? (
-          <img className={styles.avatarIcon} src={icon} alt="" />
-        ) : (
-          <div className={styles.avatar}>
-            <div className={styles.avatarCircle} />
-            <div className={styles.avatarRing} />
-          </div>
-        )}
+        <img className={styles.avatarIcon} src={profileMark} alt="" />
       </div>
-
-      {skipStatus && (
-        <div className={styles.skipAlert} role="status">
-          <strong>{skipStatus.label}</strong>
-          <span>{skipStatus.description}</span>
-        </div>
-      )}
 
       {!assetsOnly && (
         <div className={styles.statsSection}>

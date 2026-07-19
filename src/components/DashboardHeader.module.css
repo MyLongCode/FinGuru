@@ -51,6 +51,12 @@
   min-width: 0;
 }
 
+.sparkle img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .playerRole,
 .separator,
 .moveNumber {
@@ -68,5 +74,17 @@
 }
 
 .separator {
-  color: rgba(60, 60, 67, 0.35);
+  width: 16px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.separator img {
+  width: 14px;
+  height: 1px;
+  display: block;
+  transform: rotate(-90deg);
 }

@@ -8,3 +8,9 @@ export function formatCurrency(amount: number): string {
   const sign = amount < 0 ? '- ' : ''
   return `${sign}${Math.abs(amount).toLocaleString('ru-RU')} ₽`
 }
+
+export function formatFullCurrency(amount: number): string {
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  const sign = normalized < 0 ? '- ' : ''
+  return `${sign}${Math.abs(normalized).toLocaleString('ru-RU')} ₽`
+}

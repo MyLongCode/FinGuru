@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import Dashboard from '../components/Dashboard'
 import GameBoard from '../components/GameBoard'
+import type { TopBarSpinRequest } from '../components/TopBar'
 import MoveHistory from '../components/MoveHistory'
-import { icons, roleData } from '../data/roles'
+import { roleData } from '../data/roles'
 import smallDealImage from '../components/dealSelection/deal-small.svg'
 import bigDealImage from '../components/dealSelection/deal-big.svg'
 import {
@@ -31,10 +32,19 @@ import {
   type FinGuruHistoryEntry,
   type FinGuruLiability,
 } from '../sdk'
-import { buildCellPath, formatRollResult, getBankCreditProjection, isValidMoneyAmount, sortHistoryByTurn } from '../utils/gameUi'
+import {
+  buildCellPath,
+  formatRollResult,
+  getBankCreditProjection,
+  getBigCircleDreamCell,
+  getForwardTrackDistance,
+  isValidMoneyAmount,
+  sortHistoryByTurn,
+} from '../utils/gameUi'
 import styles from './GamePage.module.css'
 
 const MIN_DICE_ANIMATION_MS = 900
+const VICTORY_CASH_FLOW_TARGET = 50_000
 
 interface EventCardData {
   id: string
@@ -49,6 +59,13 @@ interface EventCardData {
   newCash?: number
   incomeChange?: number
   expensesChange?: number
+}
+
+interface PendingRollVisual {
+  id: string
+  movementDone: boolean
+  rouletteDone: boolean
+  apply: () => void
 }
 
 export default function GamePage() {
@@ -84,6 +101,7 @@ export default function GamePage() {
     liabilityId?: string
   } | null>(null)
   const [displayPositions, setDisplayPositions] = useState<Record<string, { position: number; bigPosition: number }>>({})
+  const [topBarSpinRequest, setTopBarSpinRequest] = useState<TopBarSpinRequest | null>(null)
   const pendingDecisionIdentity = gameState?.pendingDecision
     ? `${gameState.pendingDecision.decisionType}:${gameState.pendingDecision.createdAt ?? ''}:${gameState.pendingDecision.decisionOptions?.[0]?.cardId ?? ''}`
     : null
@@ -91,6 +109,8 @@ export default function GamePage() {
   const rollStartedAtRef = useRef<number>(0)
   const decisionTimeoutRef = useRef<number | null>(null)
   const displayPositionsRef = useRef(displayPositions)
+  const visualRollPlayerRef = useRef<string | null>(null)
+  const pendingRollVisualRef = useRef<PendingRollVisual | null>(null)
 
   const applyDisplayPositions = useCallback((positions: Record<string, { position: number; bigPosition: number }>) => {
     displayPositionsRef.current = positions
@@ -108,6 +128,21 @@ export default function GamePage() {
     window.clearTimeout(decisionTimeoutRef.current)
     decisionTimeoutRef.current = null
   }, [])
+
+  const completePendingRollVisual = useCallback((pending: PendingRollVisual) => {
+    if (pendingRollVisualRef.current !== pending || !pending.movementDone || !pending.rouletteDone) return
+    pendingRollVisualRef.current = null
+    visualRollPlayerRef.current = null
+    setTopBarSpinRequest(current => current?.id === pending.id ? null : current)
+    pending.apply()
+  }, [])
+
+  const handleTopBarSpinComplete = useCallback((requestId: string) => {
+    const pending = pendingRollVisualRef.current
+    if (!pending || pending.id !== requestId) return
+    pending.rouletteDone = true
+    completePendingRollVisual(pending)
+  }, [completePendingRollVisual])
 
   useEffect(() => {
     if (!roomId) return
@@ -133,7 +168,11 @@ export default function GamePage() {
     const unsubState = subscribeGameStateUpdate(sdk, roomId, (state) => {
       setTurnRoll(current => current?.awaitsDecision && state.turnCount > current.turnCount ? null : current)
       setGameState(state)
-      applyDisplayPositions(getPlayerPositions(state.players))
+      const nextPositions = getPlayerPositions(state.players)
+      const visualPlayerId = visualRollPlayerRef.current
+      const visualPosition = visualPlayerId ? displayPositionsRef.current[visualPlayerId] : undefined
+      if (visualPlayerId && visualPosition) nextPositions[visualPlayerId] = visualPosition
+      applyDisplayPositions(nextPositions)
       setMoveHistory(mapServerHistory(state.history))
       setStatusMessage(getStatusMessage(state, sdkPlayerId))
 
@@ -171,6 +210,13 @@ export default function GamePage() {
 
     const unsubDice = subscribeDiceRoll(sdk, roomId, (result: DiceRollResult) => {
       clearRollTimeout()
+      const previousPending = pendingRollVisualRef.current
+      if (previousPending) {
+        pendingRollVisualRef.current = null
+        visualRollPlayerRef.current = null
+        previousPending.apply()
+      }
+      setIsRolling(true)
       const rollDiceValues = result.diceValues?.length
         ? result.diceValues
         : [result.dice1, result.dice2].filter(Boolean)
@@ -255,21 +301,67 @@ export default function GamePage() {
         setMoveHistory(mapServerHistory(result.history))
 
         setIsRolling(false)
+        rollStartedAtRef.current = 0
         if (!result.requiresDecision) setTurnRoll(null)
       }
 
       const animateMovement = () => {
         const movedPlayer = result.players.find(player => player.playerId === result.rolledBy)
-        const previous = displayPositionsRef.current[result.rolledBy]
+        const currentDisplayPosition = displayPositionsRef.current[result.rolledBy]
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        const trackSize = movedPlayer?.isOnBigCircle ? 48 : 24
+        const finalCell = movedPlayer
+          ? movedPlayer.isOnBigCircle ? movedPlayer.bigPosition : movedPlayer.position
+          : 0
+        const displayedCell = movedPlayer && currentDisplayPosition
+          ? movedPlayer.isOnBigCircle ? currentDisplayPosition.bigPosition : currentDisplayPosition.position
+          : finalCell
+        const startCell = result.total > 0 && displayedCell === finalCell
+          ? ((finalCell - result.total) % trackSize + trackSize) % trackSize
+          : displayedCell
+        const previous = movedPlayer && currentDisplayPosition
+          ? {
+              position: movedPlayer.isOnBigCircle ? currentDisplayPosition.position : startCell,
+              bigPosition: movedPlayer.isOnBigCircle ? startCell : currentDisplayPosition.bigPosition,
+            }
+          : currentDisplayPosition
+        const needsRoulette = Boolean(movedPlayer?.isOnBigCircle && result.total > 0)
+        const visualId = `${result.rolledBy}:${result.turnCount ?? Date.now()}:${movedPlayer?.bigPosition ?? 0}`
+        const pending: PendingRollVisual = {
+          id: visualId,
+          movementDone: false,
+          rouletteDone: !needsRoulette,
+          apply: applyRollResult,
+        }
+        pendingRollVisualRef.current = pending
+        visualRollPlayerRef.current = result.rolledBy
+
+        if (movedPlayer && previous) {
+          applyDisplayPositions({
+            ...displayPositionsRef.current,
+            [result.rolledBy]: previous,
+          })
+        }
+
+        if (needsRoulette && movedPlayer) {
+          setTopBarSpinRequest({
+            id: visualId,
+            targetIndex: movedPlayer.bigPosition,
+            durationMs: 1800,
+          })
+        }
+
+        const markMovementDone = () => {
+          pending.movementDone = true
+          completePendingRollVisual(pending)
+        }
+
         if (!movedPlayer || !previous || result.total <= 0 || reduceMotion) {
-          applyRollResult()
+          markMovementDone()
           return
         }
 
-        const trackSize = movedPlayer.isOnBigCircle ? 48 : 24
-        const start = movedPlayer.isOnBigCircle ? previous.bigPosition : previous.position
-        const path = buildCellPath(start, result.total, trackSize)
+        const path = buildCellPath(startCell, result.total, trackSize)
         let step = 0
         const moveOneCell = () => {
           const nextCell = path[step]
@@ -283,7 +375,8 @@ export default function GamePage() {
           }
           applyDisplayPositions(nextPositions)
           if (step >= result.total) {
-            applyRollResult()
+            rollTimeoutRef.current = null
+            markMovementDone()
             return
           }
           rollTimeoutRef.current = window.setTimeout(moveOneCell, 140)
@@ -291,7 +384,7 @@ export default function GamePage() {
         moveOneCell()
       }
 
-      const elapsed = Date.now() - rollStartedAtRef.current
+      const elapsed = rollStartedAtRef.current > 0 ? Date.now() - rollStartedAtRef.current : 0
       const remaining = Math.max(0, MIN_DICE_ANIMATION_MS - elapsed)
       if (remaining > 0) {
         rollTimeoutRef.current = window.setTimeout(animateMovement, remaining)
@@ -381,7 +474,7 @@ export default function GamePage() {
       clearRollTimeout()
       clearDecisionTimeout()
     }
-  }, [roomId, sdkPlayerId, clearRollTimeout, clearDecisionTimeout, applyDisplayPositions])
+  }, [roomId, sdkPlayerId, clearRollTimeout, clearDecisionTimeout, applyDisplayPositions, completePendingRollVisual])
 
   useEffect(() => {
     const me = gameState?.players.find(p => p.playerId === sdkPlayerId)
@@ -546,8 +639,6 @@ export default function GamePage() {
     ? selectedPlayerId
     : (isSpectator ? gamePlayers[0]?.playerId : (gamePlayers.some(player => player.playerId === sdkPlayerId) ? sdkPlayerId : gamePlayers[0]?.playerId))
   const me = gamePlayers.find(p => p.playerId === (isSpectator ? inspectedPlayerId : sdkPlayerId))
-  const serverDreams = gameState?.dreams ?? []
-  const myDream = me?.dreamId != null ? serverDreams.find((d: any) => d.id === me.dreamId) ?? null : null
 
   const dashboardPlayer = me ?? {
     playerId: sdkPlayerId,
@@ -590,10 +681,8 @@ export default function GamePage() {
   const bigSectorDreams = (gameState?.players ?? [])
     .filter(p => p.dreamId != null)
     .map(p => {
-      const dreamIndex = (p.dreamId! - 1) % 7
-      const cellIndex = (dreamIndex * 7) % 48
       return {
-        cellIndex,
+        cellIndex: getBigCircleDreamCell(p.dreamId!),
         playerName: p.displayName,
         color: p.color,
       }
@@ -664,6 +753,12 @@ export default function GamePage() {
     && !dashboardPlayer.skipNextTurn
     && (dashboardPlayer.skipTurnsRemaining ?? 0) <= 0
   const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
+  const activePlayerIndex = activePlayer
+    ? gamePlayers.findIndex(player => player.playerId === activePlayer.playerId)
+    : -1
+  const nextPlayer = activePlayerIndex >= 0 && gamePlayers.length > 1
+    ? gamePlayers[(activePlayerIndex + 1) % gamePlayers.length]
+    : undefined
   const passiveIncome = (dashboardPlayer.assets ?? [])
     .reduce((sum, asset) => sum + (asset.cashFlow ?? 0), 0)
   const salaryIncome = Math.max(0, dashboardPlayer.income - passiveIncome)
@@ -701,18 +796,14 @@ export default function GamePage() {
       bgColor: 'rgb(52, 199, 89)',
     }] : []),
     ...(skipTurnsRemaining > 0 ? [{
-      label: 'Пропуск хода',
-      description: skipTurnsRemaining === 1
-        ? 'Остался 1 пропуск'
-        : `Осталось пропусков: ${skipTurnsRemaining}`,
-      bgColor: 'rgba(255, 59, 48, 0.14)',
+      label: 'Увольнение',
+      description: `${skipTurnsRemaining} ${getTurnWord(skipTurnsRemaining)} пропускаешь`,
+      bgColor: 'rgb(74, 74, 74)',
     }] : []),
     ...(charityDiceTurnsRemaining > 0 ? [{
-      label: '3 кубика',
-      description: charityDiceTurnsRemaining === 1
-        ? 'Остался 1 усиленный бросок'
-        : `Осталось бросков: ${charityDiceTurnsRemaining}`,
-      bgColor: 'rgba(52, 199, 89, 0.16)',
+      label: 'Выбор кубика',
+      description: `${charityDiceTurnsRemaining} ${getTurnWord(charityDiceTurnsRemaining)}`,
+      bgColor: 'rgb(50, 173, 230)',
     }] : []),
     ...(myPendingDecision ? [{
       label: 'Нужно решение',
@@ -794,21 +885,30 @@ export default function GamePage() {
           onPayLiability={handlePayLiability}
           onTakeCredit={handleRequestCredit}
           onClaimSalary={handleClaimSalary}
-          icon={icons[`/src/assets/roles/${dashboardPlayer.roleId || roleName}.svg`]}
         />
       </div>
 
       <div className={styles.boardColumn}>
-        <div className={styles.turnPanel}>
-          <span className={styles.turnEyebrow}>
-            Круг {gameState?.currentRound ?? 0}
-          </span>
-          <strong>{statusMessage}</strong>
-          {myDream && (
-            <span className={styles.turnHint}>
-              Мечта: {myDream.title} | {formatMoney(myDream.price)}
-            </span>
-          )}
+        <div className={styles.turnPanel} aria-label={statusMessage}>
+          <div className={styles.turnPlayerColumn}>
+            <span className={styles.turnPlayerLabel}>Ход игрока</span>
+            <strong
+              className={styles.turnPlayerName}
+              style={{ color: activePlayer?.color || 'rgb(255, 149, 0)' }}
+            >
+              {activePlayer?.displayName ?? 'Ждём игру'}
+            </strong>
+          </div>
+          <div className={styles.turnPlayerColumn}>
+            <span className={styles.turnPlayerLabel}>Следующий игрок</span>
+            <strong
+              className={styles.turnPlayerName}
+              style={{ color: nextPlayer?.color || 'rgb(0, 122, 255)' }}
+            >
+              {nextPlayer?.displayName ?? '—'}
+            </strong>
+          </div>
+          <span className={styles.visuallyHidden} aria-live="polite">{statusMessage}</span>
         </div>
 
         <GameBoard
@@ -823,8 +923,10 @@ export default function GamePage() {
           bigTrack={gameState?.bigTrack ?? []}
           activeTab={activeTab}
           visibleCircle={visibleCircle}
+          spinRequest={topBarSpinRequest}
           onTabChange={setActiveTab}
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
+          onSpinComplete={handleTopBarSpinComplete}
         />
       </div>
 
@@ -1872,9 +1974,17 @@ function PlayersPanel({
         {players.map(player => {
           const financials = getPlayerFinancials(player)
           const dream = dreams.find(item => item.id === player.dreamId)
-          const target = Math.max(1, (player.expenses ?? 0) + 1)
-          const remaining = Math.max(0, target - financials.passiveIncome)
-          const progressPct = Math.min(financials.passiveIncome / target, 1)
+          const target = player.isOnBigCircle
+            ? VICTORY_CASH_FLOW_TARGET
+            : Math.max(1, (player.expenses ?? 0) + 1)
+          const progressValue = player.isOnBigCircle
+            ? Math.max(0, financials.cashFlow)
+            : financials.passiveIncome
+          const remaining = Math.max(0, target - progressValue)
+          const progressPct = Math.min(progressValue / target, 1)
+          const dreamTurnsRemaining = player.isOnBigCircle && dream
+            ? getForwardTrackDistance(player.bigPosition ?? 0, getBigCircleDreamCell(dream.id), 48)
+            : null
           const isSelected = player.playerId === selectedPlayerId
           const isCurrent = player.playerId === currentPlayerId
 
@@ -1901,12 +2011,19 @@ function PlayersPanel({
               </span>
 
               <span className={styles.playerProgressBlock}>
-                <span>До выхода на большой круг</span>
+                <span>{player.isOnBigCircle ? 'До победы нужно' : 'До выхода на большой круг'}</span>
                 <span className={styles.playerProgressTrack}>
                   <span style={{ width: `${progressPct * 100}%`, background: player.color }} />
                   <strong>{formatMoney(remaining)}</strong>
                 </span>
-                {dream && <em>Мечта: {dream.title}</em>}
+                {dream && (
+                  <em className={styles.playerDreamDetails}>
+                    <span>Мечта: {dream.title}</span>
+                    {dreamTurnsRemaining != null && (
+                      <b>До мечты: {dreamTurnsRemaining} {getTurnWord(dreamTurnsRemaining)}</b>
+                    )}
+                  </em>
+                )}
               </span>
 
               <span className={styles.playerMiniStats}>
@@ -2182,4 +2299,13 @@ function getStatusMessage(state: GameState, playerId: string): string {
 
   const activePlayer = state.players.find(p => p.playerId === state.currentPlayerId)
   return activePlayer ? `Ходит ${activePlayer.displayName}` : 'Ожидание хода'
+}
+
+function getTurnWord(count: number): string {
+  const absolute = Math.abs(count) % 100
+  const remainder = absolute % 10
+  if (absolute > 10 && absolute < 20) return 'ходов'
+  if (remainder === 1) return 'ход'
+  if (remainder >= 2 && remainder <= 4) return 'хода'
+  return 'ходов'
 }

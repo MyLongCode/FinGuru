@@ -5,7 +5,12 @@ import { sectors, bigSectors, SECTOR_COUNT } from '../data/gameBoard'
 import type { SectorConfig } from '../data/gameBoard'
 import type { SpeedTrackCell } from '../sdk'
 import { getSpeedTrackTone, getTwoLineSpeedTrackTitle } from '../utils/gameUi'
-import TopBar, { type TopBarDreams, type TopBarItem, type TopBarPlayers } from './TopBar'
+import TopBar, {
+  type TopBarDreams,
+  type TopBarItem,
+  type TopBarPlayers,
+  type TopBarSpinRequest,
+} from './TopBar'
 
 const SECTOR_ANGLE = 360 / SECTOR_COUNT
 const BIG_SECTOR_COUNT = 48
@@ -47,8 +52,10 @@ interface GameBoardProps {
   rollButtonLabel?: string
   activeTab?: 'small' | 'big'
   visibleCircle?: 'small' | 'big'
+  spinRequest?: TopBarSpinRequest | null
   onTabChange?: (tab: 'small' | 'big') => void
   onRollDice?: () => void
+  onSpinComplete?: (requestId: string) => void
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number): [number, number] {
@@ -257,8 +264,10 @@ export default function GameBoard({
   rollButtonLabel,
   activeTab = 'small',
   visibleCircle,
+  spinRequest,
   onTabChange,
   onRollDice,
+  onSpinComplete,
 }: GameBoardProps) {
   const [internalTab, setInternalTab] = useState<'small' | 'big'>('small')
   const [activeIndex, setActiveIndex] = useState(5)
@@ -468,7 +477,15 @@ export default function GameBoard({
         )}
 
         <div className={`${styles.topBarWrapper} ${tab === 'big' ? styles.topBarWrapperVisible : ''}`}>
-          <TopBar items={topBarItems} players={topBarPlayers} dreams={topBarDreams} onActiveIndexChange={setActiveIndex} />
+          <TopBar
+            items={topBarItems}
+            players={topBarPlayers}
+            dreams={topBarDreams}
+            initialIndex={bigSectorPlayers[0]?.cellIndex ?? 0}
+            spinRequest={spinRequest}
+            onActiveIndexChange={setActiveIndex}
+            onSpinComplete={onSpinComplete}
+          />
         </div>
 
         <div className={styles.wheelWrapper}>

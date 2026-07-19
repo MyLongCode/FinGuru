@@ -1,4 +1,6 @@
 import styles from './DashboardHeader.module.css'
+import sparkleIcon from '../assets/dashboard/sparkle.svg'
+import roleSeparator from '../assets/dashboard/role-separator.svg'
 
 interface DashboardHeaderProps {
   playerName: string
@@ -12,14 +14,14 @@ export default function DashboardHeader({ playerName, playerRole, moveNumber }: 
       <div className={styles.playerNameRow}>
         <h1 className={styles.playerName}>{playerName}</h1>
         <div className={styles.sparkle} aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 0L9.8 5.5L15 8L9.8 10.5L8 16L6.2 10.5L1 8L6.2 5.5L8 0Z" fill="white" />
-          </svg>
+          <img src={sparkleIcon} alt="" />
         </div>
       </div>
       <div className={styles.playerMeta}>
         <span className={styles.playerRole}>{playerRole}</span>
-        <span className={styles.separator}>›</span>
+        <span className={styles.separator} aria-hidden="true">
+          <img src={roleSeparator} alt="" />
+        </span>
         <span className={styles.moveNumber}>Ход {moveNumber}</span>
       </div>
     </div>

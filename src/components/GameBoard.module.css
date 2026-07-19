@@ -141,6 +141,12 @@
     display: none;
   }
 
+  .content {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
   .tab {
     min-height: 30px;
     padding: 0 10px;
@@ -152,7 +158,7 @@
     inset: auto;
     width: 100%;
     height: auto;
-    min-height: 220px;
+    min-height: 0;
     align-items: center;
     justify-content: center;
     overflow: hidden;
@@ -165,14 +171,14 @@
   }
 
   .topBarWrapperVisible {
-    max-height: min(222px, 31vh);
+    max-height: clamp(198px, 28dvh, 222px);
   }
 
   .diceDock {
     position: relative;
     inset: auto;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .diceTray {
@@ -337,7 +343,7 @@
     position: relative;
     inset: auto;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .diceTray {
@@ -369,7 +375,7 @@
   .wheelWrapper {
     width: 100%;
     height: auto;
-    min-height: 200px;
+    min-height: 0;
   }
 
   .diceDock {
