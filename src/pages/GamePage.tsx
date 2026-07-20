@@ -41,6 +41,7 @@ import {
   isValidMoneyAmount,
   sortHistoryByTurn,
 } from '../utils/gameUi'
+import sparkleIcon from '../assets/dashboard/sparkle.svg'
 import styles from './GamePage.module.css'
 
 const MIN_DICE_ANIMATION_MS = 900
@@ -953,6 +954,7 @@ export default function GamePage() {
             players={gamePlayers}
             currentPlayerId={gameState?.currentPlayerId ?? ''}
             selectedPlayerId={inspectedPlayerId ?? ''}
+            roundNumber={gameState?.currentRound ?? 0}
             dreams={gameState?.dreams ?? []}
             onSelectPlayer={setSelectedPlayerId}
           />
@@ -1946,16 +1948,18 @@ function AuctionCard({
   )
 }
 
-function PlayersPanel({
+export function PlayersPanel({
   players,
   currentPlayerId,
   selectedPlayerId,
+  roundNumber,
   dreams,
   onSelectPlayer,
 }: {
   players: any[]
   currentPlayerId: string
   selectedPlayerId: string
+  roundNumber: number
   dreams: any[]
   onSelectPlayer: (playerId: string) => void
 }) {
@@ -1974,16 +1978,29 @@ function PlayersPanel({
         {players.map(player => {
           const financials = getPlayerFinancials(player)
           const dream = dreams.find(item => item.id === player.dreamId)
+          const fallbackStartingCashFlow = financials.passiveIncome * 100
+          const bigCircleStartingCashFlow = Math.max(
+            0,
+            player.bigCircleStartingCashFlow || fallbackStartingCashFlow,
+          )
+          const bigCircleCurrentCashFlow = Math.max(
+            bigCircleStartingCashFlow,
+            player.income ?? bigCircleStartingCashFlow,
+          )
+          const bigCircleCashFlowGrowth = Math.max(
+            0,
+            bigCircleCurrentCashFlow - bigCircleStartingCashFlow,
+          )
           const target = player.isOnBigCircle
             ? VICTORY_CASH_FLOW_TARGET
             : Math.max(1, (player.expenses ?? 0) + 1)
           const progressValue = player.isOnBigCircle
-            ? Math.max(0, financials.cashFlow)
+            ? bigCircleCashFlowGrowth
             : financials.passiveIncome
           const remaining = Math.max(0, target - progressValue)
           const progressPct = Math.min(progressValue / target, 1)
           const dreamTurnsRemaining = player.isOnBigCircle && dream
-            ? getForwardTrackDistance(player.bigPosition ?? 0, getBigCircleDreamCell(dream.id), 48)
+            ? getForwardTrackDistance(player.bigPosition ?? 0, getBigCircleDreamCell(Number(dream.id)), 48)
             : null
           const isSelected = player.playerId === selectedPlayerId
           const isCurrent = player.playerId === currentPlayerId
@@ -1992,52 +2009,90 @@ function PlayersPanel({
             <button
               key={player.playerId}
               type="button"
-              className={isSelected ? styles.playerCardActive : styles.playerCard}
+              className={isCurrent ? styles.playerCardActive : styles.playerCard}
+              aria-pressed={isSelected}
               onClick={() => onSelectPlayer(player.playerId)}
             >
-              <span className={styles.playerCardHeader}>
-                <span className={styles.playerCardIdentity}>
-                  <span className={styles.playerNameLine}>
-                    <strong style={{ color: player.color }}>{player.displayName || 'Игрок'}</strong>
-                    {isCurrent && <em style={{ background: player.color }}>●</em>}
+              {isCurrent && <span className={styles.currentPlayerLabel}>Сейчас ходит</span>}
+              <span className={styles.playerCardBody}>
+                <span className={styles.playerCardHeader}>
+                  <span className={styles.playerCardIdentity}>
+                    <span className={styles.playerNameLine}>
+                      <strong style={{ color: player.color }}>{player.displayName || 'Игрок'}</strong>
+                      <em className={styles.playerColorMark} style={{ background: player.color }}>
+                        <img src={sparkleIcon} alt="" />
+                      </em>
+                    </span>
+                    <span className={styles.playerRoleLine}>
+                      <span>{roleData[player.roleId]?.name ?? player.roleId}</span>
+                      <span>{roundNumber} ход</span>
+                    </span>
+                    <span className={styles.playerSalary}>
+                      {player.isOnBigCircle ? 'Текущий поток' : 'Зарплата'}
+                      <b>{formatMoney(player.isOnBigCircle ? bigCircleCurrentCashFlow : financials.salary)}</b>
+                    </span>
                   </span>
-                  <span>{roleData[player.roleId]?.name ?? player.roleId} › {player.isOnBigCircle ? 'Большой круг' : 'Малый круг'}</span>
-                  <span>Зарплата <b>{formatMoney(financials.salary)}</b></span>
+                  <span className={styles.playerCash}>
+                    <strong>{formatMoney(player.cash ?? 0)}</strong>
+                    <span>Налички</span>
+                  </span>
                 </span>
-                <span className={styles.playerCash}>
-                  <strong>{formatMoney(player.cash ?? 0)}</strong>
-                  <span>Налички</span>
-                </span>
-              </span>
 
-              <span className={styles.playerProgressBlock}>
-                <span>{player.isOnBigCircle ? 'До победы нужно' : 'До выхода на большой круг'}</span>
-                <span className={styles.playerProgressTrack}>
-                  <span style={{ width: `${progressPct * 100}%`, background: player.color }} />
-                  <strong>{formatMoney(remaining)}</strong>
-                </span>
-                {dream && (
-                  <em className={styles.playerDreamDetails}>
-                    <span>Мечта: {dream.title}</span>
-                    {dreamTurnsRemaining != null && (
-                      <b>До мечты: {dreamTurnsRemaining} {getTurnWord(dreamTurnsRemaining)}</b>
-                    )}
-                  </em>
-                )}
-              </span>
+                <span className={styles.playerFinancials}>
+                  <span className={styles.playerProgressBlock}>
+                    <span>{player.isOnBigCircle ? 'До победы вам осталось' : 'До выхода на большой круг'}</span>
+                    <span className={styles.playerProgressTrack}>
+                      <span className={styles.playerProgressFill} style={{ width: `${progressPct * 100}%` }} />
+                      <strong className={styles.playerProgressValue}>{formatMoney(remaining)}</strong>
+                      <strong
+                        className={styles.playerProgressValueFilled}
+                        style={{ clipPath: `inset(0 ${100 - progressPct * 100}% 0 0)` }}
+                      >
+                        {formatMoney(remaining)}
+                      </strong>
+                    </span>
+                  </span>
 
-              <span className={styles.playerMiniStats}>
-                <span>
-                  <small>Пассив</small>
-                  <b>{formatMoney(financials.passiveIncome)}</b>
-                </span>
-                <span>
-                  <small>Денеж. поток</small>
-                  <b>{formatMoney(financials.cashFlow)}</b>
-                </span>
-                <span>
-                  <small>Расходы</small>
-                  <b>{formatDelta(-(player.expenses ?? 0))}</b>
+                  {dream && (
+                    <span className={styles.playerDreamDetails}>
+                      <span>Мечта: {dream.title}</span>
+                      {dreamTurnsRemaining != null && (
+                        <strong>До мечты: {dreamTurnsRemaining} {getTurnWord(dreamTurnsRemaining)}</strong>
+                      )}
+                    </span>
+                  )}
+
+                  {player.isOnBigCircle ? (
+                    <span className={`${styles.playerMiniStats} ${styles.playerMiniStatsBig}`}>
+                      <span className={styles.playerStatStart}>
+                        <small>Нач. поток</small>
+                        <b>{formatMoney(bigCircleStartingCashFlow)}</b>
+                      </span>
+                      <span className={styles.playerStatGrowth}>
+                        <small>Прирост</small>
+                        <b>{formatDelta(bigCircleCashFlowGrowth)}</b>
+                      </span>
+                      <span className={styles.playerStatCurrent}>
+                        <small>Тек. поток</small>
+                        <b>{formatMoney(bigCircleCurrentCashFlow)}</b>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className={styles.playerMiniStats}>
+                      <span>
+                        <small>Пассив</small>
+                        <b>{formatMoney(financials.passiveIncome)}</b>
+                      </span>
+                      <span>
+                        <small>Денеж. поток</small>
+                        <b>{formatMoney(financials.cashFlow)}</b>
+                      </span>
+                      <span>
+                        <small>Расходы</small>
+                        <b>{formatDelta(-(player.expenses ?? 0))}</b>
+                      </span>
+                    </span>
+                  )}
                 </span>
               </span>
             </button>

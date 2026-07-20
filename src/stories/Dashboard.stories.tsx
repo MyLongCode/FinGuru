@@ -6,6 +6,11 @@ const meta: Meta<typeof Dashboard> = {
   title: 'Dashboard',
   component: Dashboard,
   parameters: { layout: 'fullscreen' },
+  decorators: [Story => (
+    <div style={{ width: 340, height: 956, overflow: 'hidden', borderRadius: 24, background: '#fff' }}>
+      <Story />
+    </div>
+  )],
 }
 
 export default meta

@@ -185,6 +185,7 @@ export interface PlayerGameState {
   position: number
   bigPosition: number
   isOnBigCircle: boolean
+  bigCircleStartingCashFlow?: number
   skipNextTurn: boolean
   skipTurnsRemaining: number
   charityDiceTurnsRemaining: number
@@ -406,6 +407,7 @@ function normalizePlayerGameState(player: any): PlayerGameState {
     position: player.position ?? player.Position ?? 0,
     bigPosition: player.bigPosition ?? player.BigPosition ?? 0,
     isOnBigCircle: player.isOnBigCircle ?? player.IsOnBigCircle ?? false,
+    bigCircleStartingCashFlow: player.bigCircleStartingCashFlow ?? player.BigCircleStartingCashFlow ?? 0,
     skipNextTurn: player.skipNextTurn ?? player.SkipNextTurn ?? false,
     skipTurnsRemaining: player.skipTurnsRemaining ?? player.SkipTurnsRemaining ?? 0,
     charityDiceTurnsRemaining: player.charityDiceTurnsRemaining ?? player.CharityDiceTurnsRemaining ?? 0,
