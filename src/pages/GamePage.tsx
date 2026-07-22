@@ -45,6 +45,7 @@ import {
   getBigCircleDreamCell,
   getForwardTrackDistance,
   isValidMoneyAmount,
+  resolveCurrentPlayerId,
   sanitizeMoneyInput,
   sortHistoryByTurn,
   getSpeedTrackTone,
@@ -791,15 +792,20 @@ export default function GamePage() {
   const isDecisionCollapsed = Boolean(decisionKey && collapsedDecisionKey === decisionKey)
   const isAuctionCollapsed = Boolean(auctionDecisionKey && collapsedDecisionKey === auctionDecisionKey)
   const isEventCollapsed = Boolean(activeEventDecisionKey && collapsedDecisionKey === activeEventDecisionKey)
-  const isMyTurn = canPlayerRoll(
+  const resolvedCurrentPlayerId = resolveCurrentPlayerId(
     gameState?.phase,
     gameState?.currentPlayerId,
+    gamePlayers.map(player => player.playerId),
+  )
+  const isMyTurn = canPlayerRoll(
+    gameState?.phase,
+    resolvedCurrentPlayerId,
     sdkPlayerId,
     isSpectator,
     dashboardPlayer.skipNextTurn,
   )
     && (dashboardPlayer.skipTurnsRemaining ?? 0) <= 0
-  const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
+  const activePlayer = gameState?.players.find(p => p.playerId === resolvedCurrentPlayerId)
   const activePlayerIndex = activePlayer
     ? gamePlayers.findIndex(player => player.playerId === activePlayer.playerId)
     : -1
@@ -963,7 +969,7 @@ export default function GamePage() {
           players={visibleCircle === 'small' ? boardPlayers : []}
           bigSectorPlayers={visibleCircle === 'big' ? bigSectorPlayers : []}
           bigSectorDreams={visibleCircle === 'big' ? bigSectorDreams : []}
-          currentPlayerId={isMyTurn ? sdkPlayerId : undefined}
+          currentPlayerId={resolvedCurrentPlayerId || undefined}
           isRolling={isRolling}
           diceCount={activeDiceCount}
           diceValues={lastRoll?.diceValues ?? []}
@@ -999,7 +1005,7 @@ export default function GamePage() {
         {rightPanelTab === 'players' ? (
           <PlayersPanel
             players={gamePlayers}
-            currentPlayerId={gameState?.currentPlayerId ?? ''}
+            currentPlayerId={resolvedCurrentPlayerId}
             selectedPlayerId={inspectedPlayerId ?? ''}
             roundNumber={gameState?.currentRound ?? 0}
             dreams={gameState?.dreams ?? []}

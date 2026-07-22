@@ -20,6 +20,16 @@ export function canPlayerRoll(
     && currentPlayerId === playerId
 }
 
+export function resolveCurrentPlayerId(
+  phase: string | undefined,
+  currentPlayerId: string | undefined,
+  playerIds: string[],
+): string {
+  if (currentPlayerId && playerIds.includes(currentPlayerId)) return currentPlayerId
+  if (phase !== 'playing') return currentPlayerId ?? ''
+  return playerIds.find(Boolean) ?? ''
+}
+
 export function buildCellPath(start: number, steps: number, trackSize: number): number[] {
   if (!Number.isInteger(steps) || steps <= 0 || !Number.isInteger(trackSize) || trackSize <= 0) {
     return []

@@ -24,13 +24,14 @@ const RING_OUTER = 250
 const OUTER_SECTOR_RADIUS_FULL = 470
 const OUTER_SECTOR_RADIUS_BIG = 200
 const CENTER_RADIUS = 60
-// Figma 1129:40612: 610 px wheel with a 365.497 px centre (59.9% of the wheel).
-// The local SVG keeps its existing 840-coordinate origin and scales that
-// reference to an 800-unit wheel centred on the same point.
+// Figma 1508:55685: the playable sector starts at roughly 40% of the wheel
+// radius. The local SVG keeps its existing 840-coordinate origin and scales
+// that reference to an 800-unit wheel centred on the same point.
 const SMALL_WHEEL_RADIUS = 400
-const SMALL_CENTER_RADIUS = SMALL_WHEEL_RADIUS * (365.497 / 610)
-const SMALL_LABEL_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.5
-const SMALL_MARKER_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.76
+const SMALL_CENTER_RADIUS = SMALL_WHEEL_RADIUS * 0.4
+const SMALL_CAT_RADIUS = SMALL_CENTER_RADIUS * 0.58
+const SMALL_LABEL_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.58
+const SMALL_MARKER_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.82
 
 export interface PlayerMarker {
   id: string
@@ -190,6 +191,7 @@ const Sector = memo(function Sector({
   innerLabelWidth = LABEL_WIDTH,
   innerLabelHeight = LABEL_HEIGHT,
   innerLabelFontSize = 9,
+  innerLabelFontWeight = 800,
   config,
 }: {
   index: number
@@ -201,6 +203,7 @@ const Sector = memo(function Sector({
   innerLabelWidth?: number
   innerLabelHeight?: number
   innerLabelFontSize?: number
+  innerLabelFontWeight?: number
   config?: SectorConfig
 }) {
   const configArray = outer ? bigSectors : sectors
@@ -235,7 +238,13 @@ const Sector = memo(function Sector({
           height={innerLabelHeight}
           transform={`rotate(${rotation}, ${lx}, ${ly})`}
         >
-          <div style={{ ...SECTOR_LABEL_STYLE, fontSize: `${innerLabelFontSize}px`, lineHeight: 1.12 }}>
+          <div style={{
+            ...SECTOR_LABEL_STYLE,
+            fontSize: `${innerLabelFontSize}px`,
+            fontWeight: innerLabelFontWeight,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.12,
+          }}>
             {label}
           </div>
         </foreignObject>
@@ -318,6 +327,7 @@ export default function GameBoard({
   const isSmallCircle = tab === 'small'
   const innerSectorRadius = isSmallCircle ? SMALL_WHEEL_RADIUS : INNER_SECTOR_RADIUS
   const centerRadius = isSmallCircle ? SMALL_CENTER_RADIUS : CENTER_RADIUS
+  const centerImageRadius = isSmallCircle ? SMALL_CAT_RADIUS : centerRadius
   const outerScale = tab === 'big' ? OUTER_SECTOR_RADIUS_BIG / OUTER_SECTOR_RADIUS_FULL : 1
   const outerSectorRadiusFull = OUTER_SECTOR_RADIUS_FULL
   const outerRingInner = outerSectorRadiusFull + 10
@@ -350,9 +360,10 @@ export default function GameBoard({
         innerSectorRadius={innerSectorRadius}
         centerRadius={centerRadius}
         innerLabelRadius={isSmallCircle ? SMALL_LABEL_RADIUS : INNER_SECTOR_RADIUS * 0.72}
-        innerLabelWidth={isSmallCircle ? 156 : LABEL_WIDTH}
-        innerLabelHeight={isSmallCircle ? 52 : LABEL_HEIGHT}
-        innerLabelFontSize={isSmallCircle ? 16 : 9}
+        innerLabelWidth={isSmallCircle ? 132 : LABEL_WIDTH}
+        innerLabelHeight={isSmallCircle ? 48 : LABEL_HEIGHT}
+        innerLabelFontSize={isSmallCircle ? 14 : 9}
+        innerLabelFontWeight={isSmallCircle ? 600 : 800}
       />
     )),
     [centerRadius, innerSectorRadius, isSmallCircle],
@@ -623,12 +634,12 @@ export default function GameBoard({
               <circle cx={CX} cy={CY} r={centerRadius} fill="url(#centerBgGrad)" />
               <image
                 href={centerImage}
-                x={CX - centerRadius}
-                y={CY - centerRadius}
-                width={centerRadius * 2}
-                height={centerRadius * 2}
+                x={CX - centerImageRadius}
+                y={CY - centerImageRadius}
+                width={centerImageRadius * 2}
+                height={centerImageRadius * 2}
                 clipPath="url(#centerClip)"
-                preserveAspectRatio="xMidYMid slice"
+                preserveAspectRatio="xMidYMid meet"
               />
               <circle
                 cx={CX}
@@ -636,12 +647,12 @@ export default function GameBoard({
                 r={centerRadius}
                 fill="none"
                 stroke="url(#goldGrad)"
-                strokeWidth={isSmallCircle ? 16 : 4.5}
+                strokeWidth={isSmallCircle ? 8 : 4.5}
               />
               <circle
                 cx={CX}
                 cy={CY}
-                r={centerRadius - (isSmallCircle ? 22 : 8)}
+                r={centerRadius - (isSmallCircle ? 12 : 8)}
                 fill="none"
                 stroke="rgba(255, 215, 0, 0.2)"
                 strokeWidth={isSmallCircle ? 3 : 1}

@@ -9,6 +9,7 @@ import {
   getSpeedTrackTone,
   getTwoLineSpeedTrackTitle,
   isValidMoneyAmount,
+  resolveCurrentPlayerId,
   sanitizeMoneyInput,
   sortHistoryByTurn,
 } from './gameUi'
@@ -36,6 +37,12 @@ describe('roll control visibility', () => {
     expect(canPlayerRoll('playing', 'p2', 'p1', false)).toBe(false)
     expect(canPlayerRoll('playing', 'p1', 'p1', true)).toBe(false)
     expect(canPlayerRoll('playing', 'p1', 'p1', false, true)).toBe(false)
+  })
+
+  it('repairs a missing playable turn with the first player only', () => {
+    expect(resolveCurrentPlayerId('playing', '', ['p1', 'p2'])).toBe('p1')
+    expect(resolveCurrentPlayerId('playing', 'p2', ['p1', 'p2'])).toBe('p2')
+    expect(resolveCurrentPlayerId('awaitingDecision', '', ['p1', 'p2'])).toBe('')
   })
 })
 
