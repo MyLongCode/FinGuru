@@ -245,6 +245,8 @@ export interface PendingDecision {
 
 export interface FinGuruCardSnapshot {
   cardId: string
+  sectorType?: string
+  sectorLabel?: string
   title: string
   description: string
   cardType: string
@@ -529,6 +531,8 @@ function normalizeCardSnapshot(card: any): FinGuruCardSnapshot | null {
 
   return {
     cardId: card.cardId ?? card.CardId ?? '',
+    sectorType: card.sectorType ?? card.SectorType ?? '',
+    sectorLabel: card.sectorLabel ?? card.SectorLabel ?? '',
     title: card.title ?? card.Title ?? '',
     description: card.description ?? card.Description ?? '',
     cardType: card.cardType ?? card.CardType ?? '',

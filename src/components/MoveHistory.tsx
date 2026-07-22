@@ -12,6 +12,9 @@ export interface DealCardData {
   title: string
   description: string
   price: string
+  sectorType?: string
+  sectorLabel?: string
+  background?: string
   cardType?: string
   dealType?: string
   cost?: number
@@ -87,7 +90,12 @@ function buildGroups(title: string, entries: MoveEntry[]): MoveGroup[] {
 
 function CardButton({ card, onOpen }: { card: DealCardData; onOpen?: (card: DealCardData) => void }) {
   return (
-    <button className={styles.openCardButton} type="button" onClick={() => onOpen?.(card)}>
+    <button
+      className={styles.openCardButton}
+      type="button"
+      style={card.background ? { background: card.background } : undefined}
+      onClick={() => onOpen?.(card)}
+    >
       <span>{card.title}</span>
       <strong>Открыть карточку</strong>
     </button>

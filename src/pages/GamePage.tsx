@@ -793,7 +793,6 @@ export default function GamePage() {
   const isAuctionCollapsed = Boolean(auctionDecisionKey && collapsedDecisionKey === auctionDecisionKey)
   const isEventCollapsed = Boolean(activeEventDecisionKey && collapsedDecisionKey === activeEventDecisionKey)
   const resolvedCurrentPlayerId = resolveCurrentPlayerId(
-    gameState?.phase,
     gameState?.currentPlayerId,
     gamePlayers.map(player => player.playerId),
   )
@@ -2385,6 +2384,18 @@ function getEventTone(type: string, dealType = ''): 'deal' | 'market' | 'negativ
   }
 }
 
+function getEventCardBackground(type: string, dealType = ''): string {
+  return {
+    deal: 'linear-gradient(225deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #4b9100',
+    market: 'linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #007aff',
+    negative: 'linear-gradient(225deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 100%), #3a3a3c',
+    salary: 'linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #ff9500',
+    expense: 'linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #8e44ad',
+    misc: 'linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #af52de',
+    dream: 'linear-gradient(225deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%), #ff2dc8',
+  }[getEventTone(type, dealType)]
+}
+
 function cardSnapshotToEventCard(
   card: FinGuruCardSnapshot,
   players: GameState['players'],
@@ -2412,10 +2423,11 @@ function cardSnapshotToEventCard(
 }
 
 function historyCardToEventCard(card: DealCardData): EventCardData {
+  const sectorType = card.sectorType || card.cardType || card.dealType || 'other'
   return {
     id: `history:${card.title}`,
-    sectorType: card.cardType || card.dealType || 'other',
-    sectorLabel: getFallbackEventTitle(card.cardType || card.dealType || 'other', card.dealType ?? ''),
+    sectorType,
+    sectorLabel: card.sectorLabel || getFallbackEventTitle(sectorType, card.dealType ?? ''),
     dealType: card.dealType,
     title: card.title || 'Карточка',
     description: [card.description, card.price ? `Цена: ${card.price}` : ''].filter(Boolean).join('\n\n'),
@@ -2504,6 +2516,12 @@ function mapServerHistory(entries: FinGuruHistoryEntry[] = []) {
       title: entry.card.title || 'Карточка',
       description: entry.card.description,
       price: formatHistoryCardPrice(entry.card),
+      sectorType: entry.card.sectorType,
+      sectorLabel: entry.card.sectorLabel,
+      background: getEventCardBackground(
+        entry.card.sectorType || entry.card.cardType || entry.card.dealType || 'other',
+        entry.card.dealType,
+      ),
       cardType: entry.card.cardType,
       dealType: entry.card.dealType,
       cost: entry.card.cost,

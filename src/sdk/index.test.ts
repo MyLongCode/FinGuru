@@ -38,7 +38,7 @@ describe('FinGuru game state normalization', () => {
       Dreams: [],
       History: [{
         Id: 'history-1',
-        Card: { CardId: 'MEL-26', Title: 'Обратное дробление', Effect: 'stockSplit', EffectNumerator: 1, EffectDenominator: 2 },
+        Card: { CardId: 'MEL-26', SectorType: 'deal', SectorLabel: 'Мелкая сделка', Title: 'Обратное дробление', Effect: 'stockSplit', EffectNumerator: 1, EffectDenominator: 2 },
       }],
       PendingCardAcknowledgement: {
         AcknowledgementId: 'ack-1',
@@ -61,6 +61,8 @@ describe('FinGuru game state normalization', () => {
     })
     expect(state?.history[0].card).toMatchObject({
       cardId: 'MEL-26',
+      sectorType: 'deal',
+      sectorLabel: 'Мелкая сделка',
       effect: 'stockSplit',
       effectNumerator: 1,
       effectDenominator: 2,
