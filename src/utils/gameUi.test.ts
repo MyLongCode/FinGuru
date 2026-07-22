@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCellPath,
+  canPlayerRoll,
   formatRollResult,
   getBankCreditProjection,
   getBigCircleDreamCell,
@@ -8,6 +9,7 @@ import {
   getSpeedTrackTone,
   getTwoLineSpeedTrackTitle,
   isValidMoneyAmount,
+  sanitizeMoneyInput,
   sortHistoryByTurn,
 } from './gameUi'
 
@@ -18,6 +20,22 @@ describe('money amount validation', () => {
     expect(isValidMoneyAmount(0, 5_000)).toBe(false)
     expect(isValidMoneyAmount(5_001, 5_000)).toBe(false)
     expect(isValidMoneyAmount(12.5, 5_000)).toBe(false)
+  })
+
+  it('allows an empty draft and removes a leading zero while typing', () => {
+    expect(sanitizeMoneyInput('')).toBe('')
+    expect(sanitizeMoneyInput('000250')).toBe('250')
+    expect(sanitizeMoneyInput('1 200 ₽')).toBe('1200')
+  })
+})
+
+describe('roll control visibility', () => {
+  it('is available only to the active non-spectator during the playing phase', () => {
+    expect(canPlayerRoll('playing', 'p1', 'p1', false)).toBe(true)
+    expect(canPlayerRoll('awaitingDecision', 'p1', 'p1', false)).toBe(false)
+    expect(canPlayerRoll('playing', 'p2', 'p1', false)).toBe(false)
+    expect(canPlayerRoll('playing', 'p1', 'p1', true)).toBe(false)
+    expect(canPlayerRoll('playing', 'p1', 'p1', false, true)).toBe(false)
   })
 })
 

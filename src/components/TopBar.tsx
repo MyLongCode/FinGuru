@@ -220,7 +220,7 @@ export default function TopBar({
     itemRefs.current[i] = el
   }, [])
 
-  const measureLayout = (): LayoutMetrics | null => {
+  const measureLayout = useCallback((): LayoutMetrics | null => {
     const container = containerRef.current
     const first = itemRefs.current[0]
     const second = itemRefs.current[1]
@@ -231,7 +231,7 @@ export default function TopBar({
     const blockWidth = Nth ? Nth.offsetLeft - first.offsetLeft : stride * N
     const firstItemCenter = first.offsetLeft + first.offsetWidth / 2
     return { firstItemCenter, stride, blockWidth }
-  }
+  }, [N])
 
   useLayoutEffect(() => {
     const container = containerRef.current
@@ -246,7 +246,7 @@ export default function TopBar({
       const target = middleStart.offsetLeft + middleStart.offsetWidth / 2 - container.clientWidth / 2
       container.scrollLeft = target
     }
-  }, [N, infinite, safeInitialIndex])
+  }, [N, infinite, safeInitialIndex, measureLayout])
 
   useEffect(() => {
     const container = containerRef.current
@@ -329,7 +329,7 @@ export default function TopBar({
         boundaryTimerRef.current = null
       }
     }
-  }, [N, infinite])
+  }, [N, infinite, measureLayout])
 
   useEffect(() => {
     const container = containerRef.current

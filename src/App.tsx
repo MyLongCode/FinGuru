@@ -1,5 +1,6 @@
 ﻿import { useState, useCallback, useEffect } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
+import type { ReactNode } from 'react'
 import { Routes, Route, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom'
 import RoleCardPage from './pages/RoleCardPage'
 import RoleDetailsPage from './pages/RoleDetailsPage'
@@ -19,6 +20,7 @@ import {
   type GameState,
 } from './sdk'
 import type { DreamItem } from './pages/DreamPage'
+import { getAuthoritativeRolePath, type RoleRouteStage } from './utils/roleRouting'
 import './App.css'
 
 function RoleDetailsPageRoute() {
@@ -71,6 +73,51 @@ function mapStandaloneDreams(dreams: GameState['dreams']): DreamItem[] {
   }))
 }
 
+function AuthoritativeRoleGuard({ stage, children }: { stage: RoleRouteStage; children: ReactNode }) {
+  const navigate = useNavigate()
+  const { roleName } = useParams<{ roleName: string }>()
+  const [searchParams] = useSearchParams()
+  const roomId = searchParams.get('roomId') ?? sessionStorage.getItem('roomId') ?? ''
+  const playerId = searchParams.get('playerId') ?? sessionStorage.getItem('playerId') ?? ''
+  const isSpectator = searchParams.get('spectator') === 'true'
+  const [checking, setChecking] = useState(Boolean(roomId && playerId))
+
+  useEffect(() => {
+    if (!roomId || !playerId) {
+      setChecking(false)
+      return
+    }
+
+    const sdk = getSdk()
+    let active = true
+    const applyState = (state: GameState) => {
+      if (!active) return
+      const authoritativePath = getAuthoritativeRolePath(state, playerId, isSpectator, stage)
+      if (!authoritativePath) return
+      const pathParts = authoritativePath.split('/')
+      const authoritativeStage = (pathParts[3] || 'card') as RoleRouteStage
+      if (roleName !== pathParts[2] || stage !== authoritativeStage) {
+        navigate(authoritativePath + window.location.search, { replace: true })
+        return
+      }
+      setChecking(false)
+    }
+
+    getGameState(sdk, roomId).then(state => {
+      if (state) applyState(state)
+    }).catch(() => {})
+    const unsubscribe = subscribeGameStateUpdate(sdk, roomId, applyState)
+
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [isSpectator, navigate, playerId, roleName, roomId, stage])
+
+  if (checking) return <p>Получаем назначенную роль...</p>
+  return children
+}
+
 function DreamPageRoute() {
   const navigate = useNavigate()
   const { roleName } = useParams<{ roleName: string }>()
@@ -89,13 +136,15 @@ function DreamPageRoute() {
       setDreams(mapDreamsFromState(state, sdkPlayerId))
     }
 
-    if (state.phase === 'playing' || state.phase === 'gameOver') {
-      const me = state.players.find(p => p.playerId === sdkPlayerId)
-      if (me?.roleId) {
+    const me = state.players.find(p => p.playerId === sdkPlayerId)
+    if (me?.roleId) {
+      if (state.phase === 'playing' || state.phase === 'gameOver') {
         navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
+      } else if (roleName && roleName !== me.roleId) {
+        navigate(`/role/${me.roleId}/dreams` + window.location.search, { replace: true })
       }
     }
-  }, [navigate, sdkPlayerId])
+  }, [navigate, roleName, sdkPlayerId])
 
   useEffect(() => {
     getFinGuruConfig().then(config => {
@@ -180,35 +229,43 @@ function RandomRoleRedirect() {
   const sdkPlayerId = searchParams.get('playerId') ?? sessionStorage.getItem('playerId') ?? ''
   const isSpectator = searchParams.get('spectator') === 'true'
   const [randomRole] = useState(() => roleKeys[Math.floor(Math.random() * roleKeys.length)])
-  const [checking, setChecking] = useState(true)
+  const checking = Boolean(roomId && sdkPlayerId)
 
   useEffect(() => {
-    if (!roomId || !sdkPlayerId) {
-      setChecking(false)
-      return
-    }
+    if (!roomId || !sdkPlayerId) return
 
     const sdk = getSdk()
-    const timeout = setTimeout(() => setChecking(false), 2000)
+    let active = true
+
+    const routeForState = (state: GameState) => {
+      if (!active) return false
+      const player = isSpectator ? state.players[0] : state.players.find(p => p.playerId === sdkPlayerId)
+      if (!player?.roleId) return false
+      const suffix = state.phase === 'playing' || state.phase === 'gameOver' ? '/game' : ''
+      navigate(`/role/${player.roleId}${suffix}` + window.location.search, { replace: true })
+      return true
+    }
 
     getGameState(sdk, roomId).then(state => {
-      clearTimeout(timeout)
-      if (state?.phase === 'playing' || state?.phase === 'gameOver') {
-        const me = isSpectator ? state.players[0] : state.players.find(p => p.playerId === sdkPlayerId)
-        if (me?.roleId) {
-          navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
-          return
-        }
+      if (state && routeForState(state)) return
+      if (!isSpectator) {
+        getPlayerInfo(sdk, roomId, sdkPlayerId).then(info => {
+          if (!active || !info.roleId) return
+          navigate(`/role/${info.roleId}` + window.location.search, { replace: true })
+        }).catch(() => {})
       }
-      setChecking(false)
-    }).catch(() => {
-      clearTimeout(timeout)
-      setChecking(false)
-    })
+    }).catch(() => {})
+
+    const unsubscribe = subscribeGameStateUpdate(sdk, roomId, routeForState)
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [navigate, roomId, sdkPlayerId, isSpectator])
 
-  if (checking) return null
-  return <Navigate to={`/role/${randomRole}`} replace />
+  if (!roomId || !sdkPlayerId) return <Navigate to={`/role/${randomRole}`} replace />
+  if (checking) return <p>Получаем назначенную роль...</p>
+  return null
 }
 
 function App() {
@@ -224,11 +281,13 @@ function App() {
     <GameProvider>
       <Routes>
         <Route path="/role/:roleName" element={
-          <RoleCardPage onTimeout={(roleName) => navigate(`/role/${roleName}/details` + window.location.search)} />
+          <AuthoritativeRoleGuard stage="card">
+            <RoleCardPage onTimeout={(roleName) => navigate(`/role/${roleName}/details` + window.location.search)} />
+          </AuthoritativeRoleGuard>
         } />
-        <Route path="/role/:roleName/details" element={<RoleDetailsPageRoute />} />
-        <Route path="/role/:roleName/dreams" element={<DreamPageRoute />} />
-        <Route path="/role/:roleName/game" element={<GamePage />} />
+        <Route path="/role/:roleName/details" element={<AuthoritativeRoleGuard stage="details"><RoleDetailsPageRoute /></AuthoritativeRoleGuard>} />
+        <Route path="/role/:roleName/dreams" element={<AuthoritativeRoleGuard stage="dreams"><DreamPageRoute /></AuthoritativeRoleGuard>} />
+        <Route path="/role/:roleName/game" element={<AuthoritativeRoleGuard stage="game"><GamePage /></AuthoritativeRoleGuard>} />
         <Route path="*" element={<RandomRoleRedirect />} />
       </Routes>
     </GameProvider>
@@ -236,5 +295,3 @@ function App() {
 }
 
 export default App
-
-

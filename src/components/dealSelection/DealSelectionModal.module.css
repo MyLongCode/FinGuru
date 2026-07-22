@@ -177,18 +177,19 @@
 
   .modal {
     border-radius: 0;
-    width: 100vw;
-    max-width: 100vw;
+    width: 100%;
+    max-width: 100%;
     min-height: 100vh;
     justify-content: center;
     box-shadow: none;
     padding: 8px 0;
+    box-sizing: border-box;
   }
 
   .carousel {
-    width: 100vw;
-    max-width: 100vw;
-    padding: 4px calc((100vw - 366px) / 2);
+    width: 100%;
+    max-width: 100%;
+    padding: 4px calc((100% - 366px) / 2);
   }
 }
 
@@ -234,7 +235,7 @@
   }
 
   .carousel {
-    padding: 4px calc((100vw - 280px) / 2);
+    padding: 4px calc((100% - 280px) / 2);
   }
 }
 

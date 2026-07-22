@@ -17,7 +17,6 @@ const BIG_SECTOR_COUNT = 48
 const BIG_SECTOR_ANGLE = 360 / BIG_SECTOR_COUNT
 const CX = 420
 const CY = 420
-const VIEWBOX = 840
 const BIG_VIEWBOX = 440
 const INNER_SECTOR_RADIUS = 200
 const RING_INNER = 200
@@ -25,6 +24,13 @@ const RING_OUTER = 250
 const OUTER_SECTOR_RADIUS_FULL = 470
 const OUTER_SECTOR_RADIUS_BIG = 200
 const CENTER_RADIUS = 60
+// Figma 1129:40612: 610 px wheel with a 365.497 px centre (59.9% of the wheel).
+// The local SVG keeps its existing 840-coordinate origin and scales that
+// reference to an 800-unit wheel centred on the same point.
+const SMALL_WHEEL_RADIUS = 400
+const SMALL_CENTER_RADIUS = SMALL_WHEEL_RADIUS * (365.497 / 610)
+const SMALL_LABEL_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.5
+const SMALL_MARKER_RADIUS = SMALL_CENTER_RADIUS + (SMALL_WHEEL_RADIUS - SMALL_CENTER_RADIUS) * 0.76
 
 export interface PlayerMarker {
   id: string
@@ -174,7 +180,29 @@ function buildPlayerMarkers(
   return markers
 }
 
-const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_RADIUS_FULL, config }: { index: number; outer?: boolean; outerRadius?: number; config?: SectorConfig }) {
+const Sector = memo(function Sector({
+  index,
+  outer,
+  outerRadius = OUTER_SECTOR_RADIUS_FULL,
+  innerSectorRadius = INNER_SECTOR_RADIUS,
+  centerRadius = CENTER_RADIUS,
+  innerLabelRadius = INNER_SECTOR_RADIUS * 0.72,
+  innerLabelWidth = LABEL_WIDTH,
+  innerLabelHeight = LABEL_HEIGHT,
+  innerLabelFontSize = 9,
+  config,
+}: {
+  index: number
+  outer?: boolean
+  outerRadius?: number
+  innerSectorRadius?: number
+  centerRadius?: number
+  innerLabelRadius?: number
+  innerLabelWidth?: number
+  innerLabelHeight?: number
+  innerLabelFontSize?: number
+  config?: SectorConfig
+}) {
   const configArray = outer ? bigSectors : sectors
   const { color, label } = config ?? configArray[index % configArray.length]
   const angle = outer ? BIG_SECTOR_ANGLE : SECTOR_ANGLE
@@ -182,12 +210,12 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
   const endAngle = (index + 1) * angle
   const midAngle = (startAngle + endAngle) / 2
   const midRad = ((midAngle - 90) * Math.PI) / 180
-  const innerR = outer ? RING_OUTER : CENTER_RADIUS
-  const outerR = outer ? outerRadius : INNER_SECTOR_RADIUS
+  const innerR = outer ? RING_OUTER : centerRadius
+  const outerR = outer ? outerRadius : innerSectorRadius
 
   const labelR = outer
     ? RING_OUTER + (outerRadius - RING_OUTER) * 0.5
-    : INNER_SECTOR_RADIUS * 0.72
+    : innerLabelRadius
   const lx = CX + labelR * Math.cos(midRad)
   const ly = CY + labelR * Math.sin(midRad)
   const rotation = midAngle - 90
@@ -201,13 +229,13 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
       />
       {!outer ? (
         <foreignObject
-          x={lx - LABEL_WIDTH / 2}
-          y={ly - LABEL_HEIGHT / 2}
-          width={LABEL_WIDTH}
-          height={LABEL_HEIGHT}
+          x={lx - innerLabelWidth / 2}
+          y={ly - innerLabelHeight / 2}
+          width={innerLabelWidth}
+          height={innerLabelHeight}
           transform={`rotate(${rotation}, ${lx}, ${ly})`}
         >
-          <div style={SECTOR_LABEL_STYLE}>
+          <div style={{ ...SECTOR_LABEL_STYLE, fontSize: `${innerLabelFontSize}px`, lineHeight: 1.12 }}>
             {label}
           </div>
         </foreignObject>
@@ -229,24 +257,24 @@ const Sector = memo(function Sector({ index, outer, outerRadius = OUTER_SECTOR_R
   )
 })
 
-const InnerBoundaryShadow = memo(function InnerBoundaryShadow({ index }: { index: number }) {
+const InnerBoundaryShadow = memo(function InnerBoundaryShadow({ index, radius }: { index: number; radius: number }) {
   const boundaryAngle = (index + 1) * SECTOR_ANGLE
   const shadowStart = boundaryAngle - 0.5
   const shadowEnd = boundaryAngle
   return (
     <path
-      d={sectorPath(shadowStart, shadowEnd, INNER_SECTOR_RADIUS)}
+      d={sectorPath(shadowStart, shadowEnd, radius)}
       fill="rgba(0, 0, 0, 0.45)"
     />
   )
 })
 
-const InnerBoundaryHighlight = memo(function InnerBoundaryHighlight({ index }: { index: number }) {
+const InnerBoundaryHighlight = memo(function InnerBoundaryHighlight({ index, radius }: { index: number; radius: number }) {
   const highlightAngle = index * SECTOR_ANGLE
   const highlightEnd = highlightAngle + 0.5
   return (
     <path
-      d={sectorPath(highlightAngle, highlightEnd, INNER_SECTOR_RADIUS)}
+      d={sectorPath(highlightAngle, highlightEnd, radius)}
       fill={"rgba(255, 255, 255, 0.35)"}
     />
   )
@@ -287,16 +315,20 @@ export default function GameBoard({
     if (onTabChange) onTabChange(t)
     else setInternalTab(t)
   }, [onTabChange, visibleCircle])
+  const isSmallCircle = tab === 'small'
+  const innerSectorRadius = isSmallCircle ? SMALL_WHEEL_RADIUS : INNER_SECTOR_RADIUS
+  const centerRadius = isSmallCircle ? SMALL_CENTER_RADIUS : CENTER_RADIUS
   const outerScale = tab === 'big' ? OUTER_SECTOR_RADIUS_BIG / OUTER_SECTOR_RADIUS_FULL : 1
-  const outerSectorRadiusFull = tab === 'small' ? OUTER_SECTOR_RADIUS_FULL * 2 : OUTER_SECTOR_RADIUS_FULL
+  const outerSectorRadiusFull = OUTER_SECTOR_RADIUS_FULL
   const outerRingInner = outerSectorRadiusFull + 10
   const outerRingOuter = outerSectorRadiusFull + 40
   const outerMarkerR = (outerRingInner + outerRingOuter) / 2
-  const innerMarkerR = (RING_INNER + RING_OUTER) / 2
+  const innerMarkerR = isSmallCircle ? SMALL_MARKER_RADIUS : (RING_INNER + RING_OUTER) / 2
+  const innerMarkerScale = isSmallCircle ? 1.3 : 1
   const outerMarkerScale = tab === 'big' ? 2.5 : 1
   const wheelViewBox = tab === 'big'
     ? `${CX - BIG_VIEWBOX / 2} ${CY - BIG_VIEWBOX / 2} ${BIG_VIEWBOX} ${BIG_VIEWBOX}`
-    : `0 0 ${VIEWBOX} ${VIEWBOX}`
+    : `${CX - SMALL_WHEEL_RADIUS} ${CY - SMALL_WHEEL_RADIUS} ${SMALL_WHEEL_RADIUS * 2} ${SMALL_WHEEL_RADIUS * 2}`
   const speedTrackSectors = useMemo<SectorConfig[]>(() => {
     if (bigTrack.length === 0) {
       return Array.from({ length: BIG_SECTOR_COUNT }, (_, index) => bigSectors[index % bigSectors.length])
@@ -312,9 +344,18 @@ export default function GameBoard({
 
   const innerSectorElements = useMemo<ReactNode[]>(
     () => Array.from({ length: SECTOR_COUNT }, (_, i) => (
-      <Sector key={`in-${i}`} index={i} />
+      <Sector
+        key={`in-${i}`}
+        index={i}
+        innerSectorRadius={innerSectorRadius}
+        centerRadius={centerRadius}
+        innerLabelRadius={isSmallCircle ? SMALL_LABEL_RADIUS : INNER_SECTOR_RADIUS * 0.72}
+        innerLabelWidth={isSmallCircle ? 156 : LABEL_WIDTH}
+        innerLabelHeight={isSmallCircle ? 52 : LABEL_HEIGHT}
+        innerLabelFontSize={isSmallCircle ? 16 : 9}
+      />
     )),
-    [],
+    [centerRadius, innerSectorRadius, isSmallCircle],
   )
 
   const outerSectorElements = useMemo<ReactNode[]>(
@@ -325,8 +366,8 @@ export default function GameBoard({
   )
 
   const innerPlayerMarkers = useMemo<ReactNode[]>(
-    () => buildPlayerMarkers(players, innerMarkerR, SECTOR_ANGLE, 1, currentPlayerId),
-    [players, currentPlayerId, innerMarkerR],
+    () => buildPlayerMarkers(players, innerMarkerR, SECTOR_ANGLE, innerMarkerScale, currentPlayerId),
+    [players, currentPlayerId, innerMarkerR, innerMarkerScale],
   )
 
   const outerPlayerMarkers = useMemo<ReactNode[]>(
@@ -504,7 +545,7 @@ export default function GameBoard({
                 <stop offset="100%" stopColor="#FF9900" />
               </linearGradient>
               <clipPath id="centerClip">
-                <circle cx={CX} cy={CY} r={CENTER_RADIUS} />
+                <circle cx={CX} cy={CY} r={centerRadius} />
               </clipPath>
               <radialGradient id="glareGrad" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="white" stopOpacity="0.2" />
@@ -542,71 +583,74 @@ export default function GameBoard({
               <g>
                 {innerSectorElements}
 
-                <circle cx={CX} cy={CY} r={INNER_SECTOR_RADIUS} fill="url(#glareGrad)" pointerEvents="none" />
+                <circle cx={CX} cy={CY} r={innerSectorRadius} fill="url(#glareGrad)" pointerEvents="none" />
                 {Array.from({ length: SECTOR_COUNT }, (_, i) => (
-                  <InnerBoundaryShadow key={`ibs-${i}`} index={i} />
+                  <InnerBoundaryShadow key={`ibs-${i}`} index={i} radius={innerSectorRadius} />
                 ))}
                 {Array.from({ length: SECTOR_COUNT }, (_, i) => (
-                  <InnerBoundaryHighlight key={`ibh-${i}`} index={i} />
+                  <InnerBoundaryHighlight key={`ibh-${i}`} index={i} radius={innerSectorRadius} />
                 ))}
 
-                <path
-                  d={ringPath(RING_INNER, RING_OUTER)}
-                  fill="white"
-                  fillRule="evenodd"
-                />
-
-                {outerSectorElements}
-                <path
-                  d={ringPath(RING_OUTER, outerSectorRadiusFull)}
-                  fill="url(#outerFadeGrad)"
-                />
+                {tab === 'big' && (
+                  <>
+                    <path
+                      d={ringPath(RING_INNER, RING_OUTER)}
+                      fill="white"
+                      fillRule="evenodd"
+                    />
+                    {outerSectorElements}
+                    <path
+                      d={ringPath(RING_OUTER, outerSectorRadiusFull)}
+                      fill="url(#outerFadeGrad)"
+                    />
+                    {outerOverlay}
+                    <path
+                      d={ringPath(outerRingInner, outerRingOuter)}
+                      fill="white"
+                      fillRule="evenodd"
+                    />
+                  </>
+                )}
                 {tab === 'small' && (
                   <path
-                    d={ringPath(RING_OUTER, outerSectorRadiusFull)}
-                    fill="rgba(255, 255, 255, 0.2)"
+                    d={ringPath(centerRadius, innerSectorRadius)}
+                    fill="url(#outerFadeGrad)"
+                    opacity={0.18}
                   />
                 )}
-                {outerOverlay}
-
-                <path
-                  d={ringPath(outerRingInner, outerRingOuter)}
-                  fill="white"
-                  fillRule="evenodd"
-                />
               </g>
 
-              <circle cx={CX} cy={CY} r={CENTER_RADIUS} fill="url(#centerBgGrad)" />
+              <circle cx={CX} cy={CY} r={centerRadius} fill="url(#centerBgGrad)" />
               <image
                 href={centerImage}
-                x={CX - CENTER_RADIUS}
-                y={CY - CENTER_RADIUS}
-                width={CENTER_RADIUS * 2}
-                height={CENTER_RADIUS * 2}
+                x={CX - centerRadius}
+                y={CY - centerRadius}
+                width={centerRadius * 2}
+                height={centerRadius * 2}
                 clipPath="url(#centerClip)"
                 preserveAspectRatio="xMidYMid slice"
               />
               <circle
                 cx={CX}
                 cy={CY}
-                r={CENTER_RADIUS}
+                r={centerRadius}
                 fill="none"
                 stroke="url(#goldGrad)"
-                strokeWidth={4.5}
+                strokeWidth={isSmallCircle ? 16 : 4.5}
               />
               <circle
                 cx={CX}
                 cy={CY}
-                r={CENTER_RADIUS - 8}
+                r={centerRadius - (isSmallCircle ? 22 : 8)}
                 fill="none"
                 stroke="rgba(255, 215, 0, 0.2)"
-                strokeWidth={1}
+                strokeWidth={isSmallCircle ? 3 : 1}
               />
 
               {innerPlayerMarkers}
 
-              {outerPlayerMarkers}
-              {outerDreamMarkers}
+              {tab === 'big' && outerPlayerMarkers}
+              {tab === 'big' && outerDreamMarkers}
             </g>
           </svg>
           </div>

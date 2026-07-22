@@ -1,10 +1,11 @@
 ﻿import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import Dashboard from '../components/Dashboard'
 import GameBoard from '../components/GameBoard'
 import type { TopBarSpinRequest } from '../components/TopBar'
 import MoveHistory from '../components/MoveHistory'
+import type { DealCardData } from '../components/MoveHistory'
 import { roleData } from '../data/roles'
 import smallDealImage from '../components/dealSelection/deal-small.svg'
 import bigDealImage from '../components/dealSelection/deal-big.svg'
@@ -21,6 +22,8 @@ import {
   payLiability,
   takeCredit,
   claimSalary,
+  closeCard,
+  createFinGuruOperationId,
   placeAuctionBid,
   passAuction,
   completeAuction,
@@ -31,15 +34,20 @@ import {
   type CellResolvedEvent,
   type FinGuruHistoryEntry,
   type FinGuruLiability,
+  type FinGuruCardSnapshot,
+  type PendingCardAcknowledgement,
 } from '../sdk'
 import {
   buildCellPath,
+  canPlayerRoll,
   formatRollResult,
   getBankCreditProjection,
   getBigCircleDreamCell,
   getForwardTrackDistance,
   isValidMoneyAmount,
+  sanitizeMoneyInput,
   sortHistoryByTurn,
+  getSpeedTrackTone,
 } from '../utils/gameUi'
 import sparkleIcon from '../assets/dashboard/sparkle.svg'
 import styles from './GamePage.module.css'
@@ -51,6 +59,7 @@ interface EventCardData {
   id: string
   sectorType: string
   sectorLabel: string
+  dealType?: string
   title: string
   description: string
   playerName: string
@@ -70,6 +79,7 @@ interface PendingRollVisual {
 }
 
 export default function GamePage() {
+  const navigate = useNavigate()
   const { roleName } = useParams<{ roleName: string }>()
   const data = roleName ? roleData[roleName] : undefined
   const { currentPlayerId: contextPlayerId } = useGame()
@@ -94,6 +104,8 @@ export default function GamePage() {
   const [turnRoll, setTurnRoll] = useState<{ label: string; turnCount: number; awaitsDecision: boolean } | null>(null)
   const [statusMessage, setStatusMessage] = useState('Ждем состояние игры...')
   const [activeEventCard, setActiveEventCard] = useState<EventCardData | null>(null)
+  const [historyCard, setHistoryCard] = useState<DealCardData | null>(null)
+  const [isClosingCard, setIsClosingCard] = useState(false)
   const [collapsedDecisionKey, setCollapsedDecisionKey] = useState<string | null>(null)
   const [amountDialog, setAmountDialog] = useState<{
     kind: 'credit' | 'repayment'
@@ -239,6 +251,7 @@ export default function GamePage() {
             turnCount: result.turnCount ?? prev.turnCount,
             phase: result.phase ?? prev.phase,
             pendingDecision: result.pendingDecision ?? prev.pendingDecision,
+            pendingCardAcknowledgement: result.pendingCardAcknowledgement ?? prev.pendingCardAcknowledgement,
             pendingAuction: prev.pendingAuction,
             winners: result.winners ?? prev.winners,
             finalResults: result.finalResults ?? prev.finalResults,
@@ -464,6 +477,7 @@ export default function GamePage() {
       clearDecisionTimeout()
       setIsRolling(false)
       setIsResolvingDecision(false)
+      setIsClosingCard(false)
       setStatusMessage(message)
     })
 
@@ -481,10 +495,15 @@ export default function GamePage() {
     const me = gameState?.players.find(p => p.playerId === sdkPlayerId)
     if (!me) return
 
+    if (!isSpectator && me.roleId && me.roleId !== roleName) {
+      navigate(`/role/${me.roleId}/game` + window.location.search, { replace: true })
+      return
+    }
+
     const nextCircle = me.isOnBigCircle ? 'big' : 'small'
     setActiveTab(nextCircle)
     setMobileView(view => (view === 'small' || view === 'big') ? nextCircle : view)
-  }, [gameState, sdkPlayerId])
+  }, [gameState, isSpectator, navigate, roleName, sdkPlayerId])
 
   const handleRollDice = useCallback(() => {
     if (isRolling || !roomId || !sdkPlayerId) return
@@ -496,7 +515,7 @@ export default function GamePage() {
 
     const sdk = getSdk()
     const diceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
-    rollDice(sdk, roomId, sdkPlayerId, diceCount)
+    rollDice(sdk, roomId, sdkPlayerId, diceCount, createFinGuruOperationId('roll'))
 
     rollTimeoutRef.current = window.setTimeout(() => {
       setIsRolling(false)
@@ -523,15 +542,16 @@ export default function GamePage() {
     }, 8000)
 
     const sdk = getSdk()
+    const operationId = createFinGuruOperationId('cell')
     if (action === 'skip' || option === 'skip') {
-      resolveCellAction(sdk, roomId, sdkPlayerId, 'skip', option, quantity, offerPrice)
+      resolveCellAction(sdk, roomId, sdkPlayerId, 'skip', option, quantity, offerPrice, operationId)
       return
     }
     if (action === 'chooseDealDeck') {
-      resolveCellAction(sdk, roomId, sdkPlayerId, 'chooseDealDeck', option, quantity, offerPrice)
+      resolveCellAction(sdk, roomId, sdkPlayerId, 'chooseDealDeck', option, quantity, offerPrice, operationId)
       return
     }
-    resolveCellAction(sdk, roomId, sdkPlayerId, action ?? 'buyDeal', option, quantity, offerPrice)
+    resolveCellAction(sdk, roomId, sdkPlayerId, action ?? 'buyDeal', option, quantity, offerPrice, operationId)
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
   const handlePayLiability = useCallback((liabilityId: string) => {
@@ -548,13 +568,13 @@ export default function GamePage() {
       return
     }
     setIsResolvingDecision(true)
-    payLiability(getSdk(), roomId, sdkPlayerId, liabilityId, liability?.balance ?? 0)
+    payLiability(getSdk(), roomId, sdkPlayerId, liabilityId, liability?.balance ?? 0, createFinGuruOperationId('liability'))
   }, [roomId, sdkPlayerId, isResolvingDecision, gameState])
 
   const handleTakeCredit = useCallback((amount: number) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
     setIsResolvingDecision(true)
-    takeCredit(getSdk(), roomId, sdkPlayerId, amount)
+    takeCredit(getSdk(), roomId, sdkPlayerId, amount, createFinGuruOperationId('credit'))
   }, [roomId, sdkPlayerId, isResolvingDecision])
 
   const handleRequestCredit = useCallback(() => {
@@ -576,14 +596,20 @@ export default function GamePage() {
     }
     if (!dialog.liabilityId || !roomId || !sdkPlayerId) return
     setIsResolvingDecision(true)
-    payLiability(getSdk(), roomId, sdkPlayerId, dialog.liabilityId, amount)
+    payLiability(getSdk(), roomId, sdkPlayerId, dialog.liabilityId, amount, createFinGuruOperationId('liability'))
   }, [amountDialog, handleTakeCredit, roomId, sdkPlayerId])
 
   const handleClaimSalary = useCallback(() => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
     setIsResolvingDecision(true)
-    claimSalary(getSdk(), roomId, sdkPlayerId)
+    claimSalary(getSdk(), roomId, sdkPlayerId, createFinGuruOperationId('salary'))
   }, [roomId, sdkPlayerId, isResolvingDecision])
+
+  const handleCloseCard = useCallback((acknowledgementId: string) => {
+    if (isSpectator || isClosingCard || !roomId || !sdkPlayerId) return
+    setIsClosingCard(true)
+    closeCard(getSdk(), roomId, sdkPlayerId, acknowledgementId)
+  }, [isClosingCard, isSpectator, roomId, sdkPlayerId])
 
   const handleAuctionBid = useCallback((bid: number) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
@@ -593,7 +619,7 @@ export default function GamePage() {
       setIsResolvingDecision(false)
       decisionTimeoutRef.current = null
     }, 8000)
-    placeAuctionBid(getSdk(), roomId, sdkPlayerId, bid)
+    placeAuctionBid(getSdk(), roomId, sdkPlayerId, bid, createFinGuruOperationId('auction-bid'))
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
   const handleAuctionPass = useCallback(() => {
@@ -604,7 +630,7 @@ export default function GamePage() {
       setIsResolvingDecision(false)
       decisionTimeoutRef.current = null
     }, 8000)
-    passAuction(getSdk(), roomId, sdkPlayerId)
+    passAuction(getSdk(), roomId, sdkPlayerId, createFinGuruOperationId('auction-pass'))
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
   const handleAuctionComplete = useCallback(() => {
@@ -615,7 +641,7 @@ export default function GamePage() {
       setIsResolvingDecision(false)
       decisionTimeoutRef.current = null
     }, 8000)
-    completeAuction(getSdk(), roomId, sdkPlayerId)
+    completeAuction(getSdk(), roomId, sdkPlayerId, createFinGuruOperationId('auction-complete'))
   }, [roomId, sdkPlayerId, isResolvingDecision, clearDecisionTimeout])
 
   useEffect(() => {
@@ -632,6 +658,13 @@ export default function GamePage() {
   useEffect(() => {
     setCollapsedDecisionKey(null)
   }, [pendingDecisionIdentity])
+
+  useEffect(() => {
+    const acknowledgement = gameState?.pendingCardAcknowledgement
+    if (!acknowledgement || acknowledgement.closedPlayerIds.includes(sdkPlayerId)) {
+      setIsClosingCard(false)
+    }
+  }, [gameState?.pendingCardAcknowledgement, sdkPlayerId])
 
   if (!data) return <p>Роль не найдена</p>
 
@@ -705,6 +738,10 @@ export default function GamePage() {
   }
   const pendingDecision = gameState?.pendingDecision ?? null
   const pendingAuction = gameState?.pendingAuction ?? null
+  const pendingCardAcknowledgement = gameState?.pendingCardAcknowledgement ?? null
+  const acknowledgementCard = pendingCardAcknowledgement
+    ? cardSnapshotToEventCard(pendingCardAcknowledgement.card, gamePlayers, pendingCardAcknowledgement.primaryPlayerId)
+    : null
   const auctionDecisionKey = pendingAuction ? `auction:${pendingAuction.auctionId}` : null
   const publicOfferOption = pendingDecision?.decisionType === 'dealPublicOffer'
     ? pendingDecision.decisionOptions?.find(option => option.action === 'acceptDealOffer')
@@ -735,9 +772,15 @@ export default function GamePage() {
     || readOnlyPendingDecision?.decisionType === 'dealOffer'
   ))
   const readOnlyPendingEventCard = readOnlyPendingDecision && !isReadOnlyDealCard
-    ? buildPendingDecisionEventCard(readOnlyPendingDecision, activeEventCard, readOnlyPendingPlayer)
+    ? buildPendingDecisionEventCard(readOnlyPendingDecision, activeEventCard, readOnlyPendingPlayer, acknowledgementCard)
     : null
-  const readOnlyEventCard = activeEventCard && !myPendingDecision && !readOnlyPendingDecision && !pendingAuction ? activeEventCard : null
+  const readOnlyEventCard = activeEventCard
+    && !myPendingDecision
+    && !readOnlyPendingDecision
+    && !pendingAuction
+    && !pendingCardAcknowledgement
+    ? activeEventCard
+    : null
   const activeEventDecisionKey = readOnlyEventCard ? `event:${readOnlyEventCard.id}` : null
   const isChoosingDealDeck = myPendingDecision?.decisionOptions?.some(option => option.action === 'chooseDealDeck') ?? false
   const isDealCardDecision = myPendingDecision?.decisionType === 'dealCard'
@@ -748,10 +791,13 @@ export default function GamePage() {
   const isDecisionCollapsed = Boolean(decisionKey && collapsedDecisionKey === decisionKey)
   const isAuctionCollapsed = Boolean(auctionDecisionKey && collapsedDecisionKey === auctionDecisionKey)
   const isEventCollapsed = Boolean(activeEventDecisionKey && collapsedDecisionKey === activeEventDecisionKey)
-  const isMyTurn = !isSpectator
-    && gameState?.phase === 'playing'
-    && gameState.currentPlayerId === sdkPlayerId
-    && !dashboardPlayer.skipNextTurn
+  const isMyTurn = canPlayerRoll(
+    gameState?.phase,
+    gameState?.currentPlayerId,
+    sdkPlayerId,
+    isSpectator,
+    dashboardPlayer.skipNextTurn,
+  )
     && (dashboardPlayer.skipTurnsRemaining ?? 0) <= 0
   const activePlayer = gameState?.players.find(p => p.playerId === gameState.currentPlayerId)
   const activePlayerIndex = activePlayer
@@ -827,16 +873,17 @@ export default function GamePage() {
         : activePlayer
           ? `Ходит ${activePlayer.displayName}`
           : 'Ожидание')
+  const hasClosedAcknowledgement = pendingCardAcknowledgement?.closedPlayerIds.includes(sdkPlayerId) ?? false
 
-  const handleMobileViewChange = useCallback((view: 'profile' | 'small' | 'big' | 'players' | 'history') => {
+  const handleMobileViewChange = (view: 'profile' | 'small' | 'big' | 'players' | 'history') => {
     const nextView = view === 'small' || view === 'big' ? visibleCircle : view
     setMobileView(nextView)
     if (nextView === 'small' || nextView === 'big') setActiveTab(visibleCircle)
     if (nextView === 'players' || nextView === 'history') setRightPanelTab(nextView)
-  }, [visibleCircle])
+  }
 
   return (
-    <div className={`${styles.gamePage} ${styles[`mobileView_${mobileView}`]}`}>
+    <div className={`${styles.gamePage} ${styles[`mobileView_${mobileView}`]} ${isMyTurn ? styles.hasMobileRoll : ''}`}>
       {isSpectator && <div className={styles.spectatorBanner}>Режим наблюдателя · выберите игрока справа для просмотра</div>}
       {isGameOver && (
         <div className={styles.gameOverOverlay}>
@@ -962,6 +1009,7 @@ export default function GamePage() {
           <MoveHistory
             title="История ходов"
             entries={moveHistory}
+            onOpenCard={setHistoryCard}
           />
         )}
       </div>
@@ -1011,6 +1059,40 @@ export default function GamePage() {
           <em>История</em>
         </button>
       </nav>
+
+      {isMyTurn && (
+        <div className={styles.mobileRollCta}>
+          <button type="button" onClick={handleRollDice} disabled={isRolling}>
+            {rollButtonLabel}
+          </button>
+        </div>
+      )}
+
+      {historyCard && (
+        <div className={`${styles.actionOverlay} ${styles.historyCardOverlay}`}>
+          <EventCard
+            card={historyCardToEventCard(historyCard)}
+            onClose={() => setHistoryCard(null)}
+            closeLabel="Закрыть"
+          />
+        </div>
+      )}
+
+      {acknowledgementCard && gameState?.phase === 'awaitingCardClose' && !hasClosedAcknowledgement && !historyCard && (
+        <div className={styles.actionOverlay}>
+          <EventCard
+            card={acknowledgementCard}
+            actions={(
+              <CardAcknowledgementControls
+                acknowledgement={pendingCardAcknowledgement!}
+                currentPlayerId={sdkPlayerId}
+                disabled={isClosingCard || isSpectator}
+                onClose={handleCloseCard}
+              />
+            )}
+          />
+        </div>
+      )}
 
       {((isDecisionCollapsed && pendingDecision) || (isAuctionCollapsed && pendingAuction) || (isEventCollapsed && readOnlyEventCard)) && (
         <button
@@ -1110,27 +1192,28 @@ export default function GamePage() {
               />
             ) : (
               <EventCard
-                card={{
-                  id: `decision:${myPendingDecision.playerId}:${myPendingDecision.createdAt ?? ''}`,
-                  sectorType: myPendingDecision.sectorType,
-                  sectorLabel: myPendingDecision.sectorLabel,
-                  title: activeEventCard?.title || getFallbackEventTitle(myPendingDecision.sectorType, myPendingDecision.sectorLabel),
-                  description: activeEventCard?.description || 'Событие требует решения. Выберите вариант, чтобы передать ход дальше.',
-                  playerName: dashboardPlayer.displayName,
-                  playerColor: dashboardPlayer.color,
-                  diceLabel: activeEventCard?.diceLabel,
-                  cashChange: activeEventCard?.cashChange,
-                  newCash: activeEventCard?.newCash,
-                }}
+                card={buildPendingDecisionEventCard(
+                  myPendingDecision,
+                  activeEventCard,
+                  dashboardPlayer,
+                  acknowledgementCard,
+                )}
                 onMinimize={() => setCollapsedDecisionKey(decisionKey)}
                 actions={myPendingDecision.decisionType === 'marketCard' && isSharedParticipant ? (
-                  <SharedSaleActions
-                    options={sharedDecisionOptions}
-                    completed={sharedDecisionCompleted}
-                    disabled={isResolvingDecision}
-                    onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
-                    onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
-                  />
+                  <>
+                    <SharedSaleActions
+                      options={sharedDecisionOptions}
+                      completed={sharedDecisionCompleted}
+                      disabled={isResolvingDecision}
+                      onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
+                      onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
+                    />
+                    {canMakePrimaryDecision && (
+                      <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
+                        Пропустить рынок
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <>
                     <div className={styles.eventActionGrid}>
@@ -1160,6 +1243,16 @@ export default function GamePage() {
               />
             )}
           </div>
+        </div>
+      )}
+      {pendingCardAcknowledgement && (gameState?.phase !== 'awaitingCardClose' || hasClosedAcknowledgement) && !historyCard && (
+        <div className={styles.floatingAcknowledgement}>
+          <CardAcknowledgementControls
+            acknowledgement={pendingCardAcknowledgement}
+            currentPlayerId={sdkPlayerId}
+            disabled={isClosingCard || isSpectator}
+            onClose={handleCloseCard}
+          />
         </div>
       )}
       {amountDialog && (
@@ -1195,9 +1288,10 @@ function MoneyAmountDialog({
   onCancel: () => void
   onConfirm: (amount: number) => void
 }) {
-  const [amount, setAmount] = useState(Math.max(1, max))
+  const [amountInput, setAmountInput] = useState(() => String(Math.max(1, max)))
+  const amount = /^\d+$/.test(amountInput) ? Number(amountInput) : Number.NaN
   const validAmount = isValidMoneyAmount(amount, max)
-  const preview = creditContext
+  const preview = creditContext && validAmount
     ? getBankCreditProjection(creditContext.income, creditContext.expenses, creditContext.liabilities, amount)
     : null
 
@@ -1209,16 +1303,18 @@ function MoneyAmountDialog({
         <label>
           <span>Сумма</span>
           <input
-            type="number"
-            min={1}
-            max={max}
-            step={1}
-            value={amount}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={amountInput}
             autoFocus
-            onChange={event => setAmount(Math.floor(Number(event.target.value)))}
+            onFocus={event => event.currentTarget.select()}
+            onChange={event => {
+              setAmountInput(sanitizeMoneyInput(event.target.value))
+            }}
           />
         </label>
-        <button type="button" className={styles.amountMaxButton} onClick={() => setAmount(max)}>Вся сумма</button>
+        <button type="button" className={styles.amountMaxButton} onClick={() => setAmountInput(String(max))}>Вся сумма</button>
         {paymentPreview && validAmount && (
           <p className={styles.amountPreview}>
             Ежемесячный платёж: <strong>{formatMoney(preview?.combinedPayment ?? Math.ceil(amount * 0.1))}</strong>
@@ -1231,6 +1327,53 @@ function MoneyAmountDialog({
           <button type="button" disabled={!validAmount} onClick={() => onConfirm(amount)}>Подтвердить</button>
         </div>
       </section>
+    </div>
+  )
+}
+
+function CardAcknowledgementControls({
+  acknowledgement,
+  currentPlayerId,
+  disabled,
+  onClose,
+}: {
+  acknowledgement: PendingCardAcknowledgement
+  currentPlayerId: string
+  disabled: boolean
+  onClose: (acknowledgementId: string) => void
+}) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!acknowledgement.expiresAt) return
+    const timer = window.setInterval(() => setNow(Date.now()), 250)
+    return () => window.clearInterval(timer)
+  }, [acknowledgement.expiresAt])
+
+  const required = acknowledgement.requiredPlayerIds.length
+  const completed = acknowledgement.closedPlayerIds.filter(playerId => acknowledgement.requiredPlayerIds.includes(playerId)).length
+  const isRequired = acknowledgement.requiredPlayerIds.includes(currentPlayerId)
+  const isClosed = acknowledgement.closedPlayerIds.includes(currentPlayerId)
+  const waitsForAction = currentPlayerId === acknowledgement.primaryPlayerId && !acknowledgement.primaryActionCompleted
+  const expiresAt = acknowledgement.expiresAt ? new Date(acknowledgement.expiresAt).getTime() : null
+  const seconds = expiresAt == null ? null : Math.max(0, Math.ceil((expiresAt - now) / 1000))
+
+  return (
+    <div className={styles.cardAcknowledgement} role="status">
+      <div className={styles.cardAcknowledgementStatus}>
+        <span>Закрыли: {Math.min(completed, required)} из {required}</span>
+        {seconds != null && <strong>{seconds} сек.</strong>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onClose(acknowledgement.acknowledgementId)}
+        disabled={disabled || !isRequired || isClosed || waitsForAction}
+      >
+        {isClosed
+          ? 'Карточка закрыта'
+          : waitsForAction
+            ? 'Сначала завершите действие'
+            : 'Закрыть карточку'}
+      </button>
     </div>
   )
 }
@@ -1265,14 +1408,16 @@ function EventCard({
   hideActions = false,
   onClose,
   onMinimize,
+  closeLabel = 'Понятно',
 }: {
   card: EventCardData
   actions?: ReactNode
   hideActions?: boolean
   onClose?: () => void
   onMinimize?: () => void
+  closeLabel?: string
 }) {
-  const toneClass = styles[`eventCard_${getEventTone(card.sectorType)}`]
+  const toneClass = styles[`eventCard_${getEventTone(card.sectorType, card.dealType)}`]
   const details = [
     card.cashChange !== undefined && card.cashChange !== 0
       ? {
@@ -1335,7 +1480,7 @@ function EventCard({
       ) : (
         <div className={styles.eventCardActions}>
           <button className={styles.eventCardClose} type="button" onClick={onClose}>
-            Понятно
+            {closeLabel}
           </button>
         </div>
       )}
@@ -2119,12 +2264,14 @@ function buildPendingDecisionEventCard(
   decision: NonNullable<GameState['pendingDecision']>,
   activeEventCard: EventCardData | null,
   player?: any,
+  snapshotEventCard?: EventCardData | null,
 ): EventCardData {
   const matchingActiveEventCard = activeEventCard
     && activeEventCard.sectorType === decision.sectorType
     && (!player?.displayName || activeEventCard.playerName === player.displayName)
     ? activeEventCard
     : null
+  const sourceEventCard = matchingActiveEventCard ?? snapshotEventCard
   const availableOptions = (decision.decisionOptions ?? [])
     .filter(option => option.option !== 'skip')
   const optionDescription = availableOptions
@@ -2136,14 +2283,15 @@ function buildPendingDecisionEventCard(
     id: `pending:${decision.playerId}:${decision.createdAt ?? ''}`,
     sectorType: decision.sectorType,
     sectorLabel: decision.sectorLabel,
-    title: matchingActiveEventCard?.title || availableOptions[0]?.title || getFallbackEventTitle(decision.sectorType, decision.sectorLabel),
-    description: matchingActiveEventCard?.description || optionDescription || 'Событие требует решения другого игрока.',
+    title: sourceEventCard?.title || availableOptions[0]?.title || getFallbackEventTitle(decision.sectorType, decision.sectorLabel),
+    description: sourceEventCard?.description || optionDescription || 'Событие требует решения другого игрока.',
     playerName: player?.displayName ?? 'Игрок',
     playerColor: player?.color ?? '#7776dc',
-    cashChange: matchingActiveEventCard?.cashChange,
-    incomeChange: matchingActiveEventCard?.incomeChange,
-    expensesChange: matchingActiveEventCard?.expensesChange,
-    newCash: matchingActiveEventCard?.newCash,
+    diceLabel: sourceEventCard?.diceLabel,
+    cashChange: sourceEventCard?.cashChange,
+    incomeChange: sourceEventCard?.incomeChange,
+    expensesChange: sourceEventCard?.expensesChange,
+    newCash: sourceEventCard?.newCash,
   }
 }
 
@@ -2194,7 +2342,21 @@ function buildAssetCategories(assets: any[], liabilities: any[]) {
   return categories
 }
 
-function getEventTone(type: string): 'deal' | 'market' | 'negative' | 'salary' | 'misc' | 'dream' {
+function getEventTone(type: string, dealType = ''): 'deal' | 'market' | 'negative' | 'salary' | 'expense' | 'misc' | 'dream' {
+  const normalizedType = type.toLowerCase()
+  if (normalizedType.startsWith('speed')) {
+    switch (getSpeedTrackTone(type, dealType)) {
+      case 'green': return 'deal'
+      case 'purple': return 'expense'
+      case 'pink': return 'dream'
+      case 'orange': return 'salary'
+    }
+  }
+  if (normalizedType.includes('deal')) return 'deal'
+  if (normalizedType.includes('market')) return 'market'
+  if (normalizedType.includes('expense')) return 'expense'
+  if (normalizedType.includes('dream')) return 'dream'
+
   switch (type) {
     case 'deal':
       return 'deal'
@@ -2214,6 +2376,45 @@ function getEventTone(type: string): 'deal' | 'market' | 'negative' | 'salary' |
     case 'other':
     default:
       return 'misc'
+  }
+}
+
+function cardSnapshotToEventCard(
+  card: FinGuruCardSnapshot,
+  players: GameState['players'],
+  primaryPlayerId: string,
+): EventCardData {
+  const player = players.find(item => item.playerId === primaryPlayerId)
+  const details = [
+    card.cost > 0 ? `Цена: ${formatMoney(card.cost)}` : '',
+    card.cashFlow !== 0 ? `Денежный поток: ${formatDelta(card.cashFlow)}` : '',
+    card.assetValue > 0 ? `Стоимость актива: ${formatMoney(card.assetValue)}` : '',
+    card.liabilityValue > 0 ? `Обязательство: ${formatMoney(card.liabilityValue)}` : '',
+    card.saleRange ? `Продажа: ${card.saleRange}` : '',
+  ].filter(Boolean)
+
+  return {
+    id: `ack:${card.cardId}`,
+    sectorType: card.cardType || card.dealType || 'other',
+    sectorLabel: getFallbackEventTitle(card.cardType || card.dealType || 'other', card.dealType),
+    dealType: card.dealType,
+    title: card.title || 'Карточка',
+    description: [card.description, ...details].filter(Boolean).join('\n\n'),
+    playerName: player?.displayName ?? 'Игрок',
+    playerColor: player?.color ?? '#7776dc',
+  }
+}
+
+function historyCardToEventCard(card: DealCardData): EventCardData {
+  return {
+    id: `history:${card.title}`,
+    sectorType: card.cardType || card.dealType || 'other',
+    sectorLabel: getFallbackEventTitle(card.cardType || card.dealType || 'other', card.dealType ?? ''),
+    dealType: card.dealType,
+    title: card.title || 'Карточка',
+    description: [card.description, card.price ? `Цена: ${card.price}` : ''].filter(Boolean).join('\n\n'),
+    playerName: 'История хода',
+    playerColor: '#7776dc',
   }
 }
 
@@ -2293,6 +2494,20 @@ function mapServerHistory(entries: FinGuruHistoryEntry[] = []) {
     transactionTypeColor: getSectorColor(entry.eventType),
     action: entry.message,
     actionColor: entry.eventType === 'skip' ? 'rgb(255, 59, 48)' : 'rgb(52, 199, 89)',
+    card: entry.card ? {
+      title: entry.card.title || 'Карточка',
+      description: entry.card.description,
+      price: formatHistoryCardPrice(entry.card),
+      cardType: entry.card.cardType,
+      dealType: entry.card.dealType,
+      cost: entry.card.cost,
+      cashFlow: entry.card.cashFlow,
+      assetValue: entry.card.assetValue,
+      liabilityValue: entry.card.liabilityValue,
+      offerPrice: entry.card.offerPrice,
+      saleRange: entry.card.saleRange,
+      logic: entry.card.logic,
+    } : undefined,
     finances: [
       entry.cashChange !== 0 ? {
         label: 'Наличные',
@@ -2319,6 +2534,11 @@ function mapServerHistory(entries: FinGuruHistoryEntry[] = []) {
     }))
 }
 
+function formatHistoryCardPrice(card: FinGuruCardSnapshot): string {
+  const price = card.offerPrice || card.cost || card.assetValue
+  return price > 0 ? formatMoney(price) : ''
+}
+
 function getPlayerPositions(players: GameState['players']) {
   return Object.fromEntries(players.map(player => [
     player.playerId,
@@ -2329,6 +2549,11 @@ function getPlayerPositions(players: GameState['players']) {
 function getStatusMessage(state: GameState, playerId: string): string {
   if (state.phase === 'gameOver') return 'Игра завершена'
   if (state.phase === 'dreamSelection') return 'Выбор мечт'
+  if (state.phase === 'awaitingCardClose') {
+    const acknowledgement = state.pendingCardAcknowledgement
+    if (acknowledgement?.closedPlayerIds.includes(playerId)) return 'Карточка закрыта, ждём остальных'
+    return 'Закройте карточку'
+  }
   if (state.phase === 'awaitingDecision') {
     if (state.pendingDecision?.decisionType === 'dealPublicOffer') {
       if (state.pendingDecision.declinedPlayerIds.includes(playerId)) return 'Вы отказались, ждём остальных'

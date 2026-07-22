@@ -73,7 +73,6 @@ function normalizeIncomingMessage(msg: any): any | null {
 function tryCreateRealSdk(origin: string): any | null {
   try {
     // dynamic import may fail in dev if package missing
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const mod = require('algogames-sdk')
     const AG = mod?.AlgoGamesSDK ?? mod?.default ?? mod
     return new AG(origin)
@@ -196,6 +195,11 @@ export interface PlayerGameState {
   liabilities?: FinGuruLiability[]
 }
 
+export function createFinGuruOperationId(action = 'operation'): string {
+  const uuid = globalThis.crypto?.randomUUID?.()
+  return `${action}:${uuid ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`
+}
+
 export interface FinGuruGameSettings {
   diceCount: 1 | 2
   salaryPayoutMode: 'automatic' | 'manual'
@@ -239,6 +243,36 @@ export interface PendingDecision {
   expiresAt?: string | null
 }
 
+export interface FinGuruCardSnapshot {
+  cardId: string
+  title: string
+  description: string
+  cardType: string
+  dealType: string
+  cost: number
+  cashFlow: number
+  assetValue: number
+  liabilityValue: number
+  offerPrice: number
+  saleRange: string
+  logic: string
+  unitCount?: number
+  effect?: string
+  effectNumerator?: number
+  effectDenominator?: number
+}
+
+export interface PendingCardAcknowledgement {
+  acknowledgementId: string
+  card: FinGuruCardSnapshot
+  primaryPlayerId: string
+  requiredPlayerIds: string[]
+  closedPlayerIds: string[]
+  primaryActionCompleted: boolean
+  createdAt?: string
+  expiresAt?: string | null
+}
+
 export interface FinGuruHistoryEntry {
   id: string
   turnNumber: number
@@ -255,6 +289,7 @@ export interface FinGuruHistoryEntry {
   newIncome: number
   newExpenses: number
   timestamp: string
+  card?: FinGuruCardSnapshot | null
 }
 
 export interface FinGuruAuctionState {
@@ -298,6 +333,10 @@ export interface DecisionOption {
   saleRange: string
   logic: string
   skipNextTurn: boolean
+  unitCount?: number
+  effect?: string
+  effectNumerator?: number
+  effectDenominator?: number
 }
 
 export interface DreamState {
@@ -335,6 +374,7 @@ export interface GameState {
   bigTrack: SpeedTrackCell[]
   pendingDecision?: PendingDecision | null
   pendingAuction?: FinGuruAuctionState | null
+  pendingCardAcknowledgement?: PendingCardAcknowledgement | null
   currentPlayerId: string
   turnCount: number
   history: FinGuruHistoryEntry[]
@@ -480,6 +520,47 @@ function normalizeHistoryEntry(entry: any): FinGuruHistoryEntry {
     newIncome: entry.newIncome ?? entry.NewIncome ?? 0,
     newExpenses: entry.newExpenses ?? entry.NewExpenses ?? 0,
     timestamp: entry.timestamp ?? entry.Timestamp ?? new Date().toISOString(),
+    card: normalizeCardSnapshot(entry.card ?? entry.Card),
+  }
+}
+
+function normalizeCardSnapshot(card: any): FinGuruCardSnapshot | null {
+  if (!card) return null
+
+  return {
+    cardId: card.cardId ?? card.CardId ?? '',
+    title: card.title ?? card.Title ?? '',
+    description: card.description ?? card.Description ?? '',
+    cardType: card.cardType ?? card.CardType ?? '',
+    dealType: card.dealType ?? card.DealType ?? '',
+    cost: card.cost ?? card.Cost ?? 0,
+    cashFlow: card.cashFlow ?? card.CashFlow ?? 0,
+    assetValue: card.assetValue ?? card.AssetValue ?? 0,
+    liabilityValue: card.liabilityValue ?? card.LiabilityValue ?? 0,
+    offerPrice: card.offerPrice ?? card.OfferPrice ?? 0,
+    saleRange: card.saleRange ?? card.SaleRange ?? '',
+    logic: card.logic ?? card.Logic ?? '',
+    unitCount: card.unitCount ?? card.UnitCount,
+    effect: card.effect ?? card.Effect,
+    effectNumerator: card.effectNumerator ?? card.EffectNumerator,
+    effectDenominator: card.effectDenominator ?? card.EffectDenominator,
+  }
+}
+
+function normalizePendingCardAcknowledgement(value: any): PendingCardAcknowledgement | null {
+  if (!value) return null
+  const card = normalizeCardSnapshot(value.card ?? value.Card)
+  if (!card) return null
+
+  return {
+    acknowledgementId: value.acknowledgementId ?? value.AcknowledgementId ?? '',
+    card,
+    primaryPlayerId: value.primaryPlayerId ?? value.PrimaryPlayerId ?? '',
+    requiredPlayerIds: value.requiredPlayerIds ?? value.RequiredPlayerIds ?? [],
+    closedPlayerIds: value.closedPlayerIds ?? value.ClosedPlayerIds ?? [],
+    primaryActionCompleted: value.primaryActionCompleted ?? value.PrimaryActionCompleted ?? false,
+    createdAt: value.createdAt ?? value.CreatedAt,
+    expiresAt: value.expiresAt ?? value.ExpiresAt ?? null,
   }
 }
 
@@ -512,6 +593,10 @@ function normalizeDecisionOption(option: any): DecisionOption {
     saleRange: option.saleRange ?? option.SaleRange ?? '',
     logic: option.logic ?? option.Logic ?? '',
     skipNextTurn: option.skipNextTurn ?? option.SkipNextTurn ?? false,
+    unitCount: option.unitCount ?? option.UnitCount,
+    effect: option.effect ?? option.Effect,
+    effectNumerator: option.effectNumerator ?? option.EffectNumerator,
+    effectDenominator: option.effectDenominator ?? option.EffectDenominator,
   }
 }
 
@@ -550,6 +635,7 @@ export function normalizeGameState(data: any): GameState | null {
   const bigTrack = data.bigTrack ?? data.BigTrack ?? []
   const pending = data.pendingDecision ?? data.PendingDecision ?? null
   const pendingAuction = data.pendingAuction ?? data.PendingAuction ?? null
+  const pendingCardAcknowledgement = data.pendingCardAcknowledgement ?? data.PendingCardAcknowledgement ?? null
 
   return {
     roomId: data.roomId ?? data.RoomId ?? '',
@@ -582,6 +668,7 @@ export function normalizeGameState(data: any): GameState | null {
     })),
     pendingDecision: normalizePendingDecision(pending),
     pendingAuction: normalizePendingAuction(pendingAuction),
+    pendingCardAcknowledgement: normalizePendingCardAcknowledgement(pendingCardAcknowledgement),
     currentPlayerId: data.currentPlayerId ?? data.CurrentPlayerId ?? '',
     turnCount: data.turnCount ?? data.TurnCount ?? 0,
     history: (data.history ?? data.History ?? []).map(normalizeHistoryEntry),
@@ -627,6 +714,7 @@ export interface DiceRollResult {
   currentRound: number
   turnCount?: number
   pendingDecision?: PendingDecision | null
+  pendingCardAcknowledgement?: PendingCardAcknowledgement | null
   requiresDecision?: boolean
   salaryPassCount?: number
   salaryCashChange?: number
@@ -658,6 +746,7 @@ function normalizeDiceRoll(data: any): DiceRollResult {
     currentRound: data.currentRound ?? data.CurrentRound ?? 0,
     turnCount: data.turnCount ?? data.TurnCount,
     pendingDecision: normalizePendingDecision(data.pendingDecision ?? data.PendingDecision),
+    pendingCardAcknowledgement: normalizePendingCardAcknowledgement(data.pendingCardAcknowledgement ?? data.PendingCardAcknowledgement),
     requiresDecision: data.requiresDecision ?? data.RequiresDecision ?? false,
     salaryPassCount: data.salaryPassCount ?? data.SalaryPassCount ?? 0,
     salaryCashChange: data.salaryCashChange ?? data.SalaryCashChange ?? 0,
@@ -671,8 +760,8 @@ function normalizeDiceRoll(data: any): DiceRollResult {
     history: (data.history ?? data.History ?? []).map(normalizeHistoryEntry),
   }
 }
-export function rollDice(sdk: AlgoGamesSDK, roomId: string, playerId: string, diceCount = 2): void {
-  sdk.sendAction('finguru.rollDice', { roomId, playerId, diceCount });
+export function rollDice(sdk: AlgoGamesSDK, roomId: string, playerId: string, diceCount = 2, operationId?: string): void {
+  sdk.sendAction('finguru.rollDice', { roomId, playerId, diceCount, operationId });
 }
 
 export function restartGame(sdk: AlgoGamesSDK, roomId: string): void {
@@ -704,9 +793,13 @@ export function subscribeGameStateUpdate(
       'finguru.stateUpdate',
       'finguru.roundProcessed',
       'finguru.gameOver',
+      'finguru.cardClosed',
     ])
 
-    const state = normalizeGameState(msg.data)
+    const rawState = msg.type === 'finguru.cardClosed'
+      ? (msg.data?.state ?? msg.data?.State ?? msg.data)
+      : msg.data
+    const state = normalizeGameState(rawState)
     if (stateEvents.has(msg.type) && state?.roomId === roomId) {
       onUpdate(state);
     }
@@ -832,8 +925,9 @@ export function resolveCellAction(
   option?: string | null,
   quantity?: number,
   offerPrice?: number,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.resolveCellAction', { roomId, playerId, actionName, option, quantity, offerPrice });
+  sdk.sendAction('finguru.resolveCellAction', { roomId, playerId, actionName, option, quantity, offerPrice, operationId });
 }
 
 export function sellAsset(
@@ -841,8 +935,9 @@ export function sellAsset(
   roomId: string,
   playerId: string,
   assetId: string,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.sellAsset', { roomId, playerId, assetId })
+  sdk.sendAction('finguru.sellAsset', { roomId, playerId, assetId, operationId })
 }
 
 export function payLiability(
@@ -851,8 +946,9 @@ export function payLiability(
   playerId: string,
   liabilityId: string,
   amount = 0,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.payLiability', { roomId, playerId, liabilityId, amount })
+  sdk.sendAction('finguru.payLiability', { roomId, playerId, liabilityId, amount, operationId })
 }
 
 export function takeCredit(
@@ -860,16 +956,27 @@ export function takeCredit(
   roomId: string,
   playerId: string,
   amount: number,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.takeCredit', { roomId, playerId, amount })
+  sdk.sendAction('finguru.takeCredit', { roomId, playerId, amount, operationId })
 }
 
 export function claimSalary(
   sdk: AlgoGamesSDK,
   roomId: string,
   playerId: string,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.claimSalary', { roomId, playerId })
+  sdk.sendAction('finguru.claimSalary', { roomId, playerId, operationId })
+}
+
+export function closeCard(
+  sdk: AlgoGamesSDK,
+  roomId: string,
+  playerId: string,
+  acknowledgementId: string,
+): void {
+  sdk.sendAction('finguru.closeCard', { roomId, playerId, acknowledgementId })
 }
 
 export function placeAuctionBid(
@@ -877,24 +984,27 @@ export function placeAuctionBid(
   roomId: string,
   playerId: string,
   bid: number,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.placeAuctionBid', { roomId, playerId, bid })
+  sdk.sendAction('finguru.placeAuctionBid', { roomId, playerId, bid, operationId })
 }
 
 export function passAuction(
   sdk: AlgoGamesSDK,
   roomId: string,
   playerId: string,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.passAuction', { roomId, playerId })
+  sdk.sendAction('finguru.passAuction', { roomId, playerId, operationId })
 }
 
 export function completeAuction(
   sdk: AlgoGamesSDK,
   roomId: string,
   playerId: string,
+  operationId?: string,
 ): void {
-  sdk.sendAction('finguru.completeAuction', { roomId, playerId })
+  sdk.sendAction('finguru.completeAuction', { roomId, playerId, operationId })
 }
 
 export function subscribeCellResolved(

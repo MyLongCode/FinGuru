@@ -2,6 +2,8 @@
   position: relative;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   font-family: 'Montserrat Alternates', sans-serif;
@@ -34,12 +36,14 @@
 
 .content {
   position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
   z-index: 1;
   overflow: hidden;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -47,7 +51,8 @@
   position: relative;
   width: 100%;
   flex: 1 1 auto;
-  min-height: 180px;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,101 +119,22 @@
 }
 
 .wheelSvg {
-  width: 100%;
-  height: 100%;
+  width: min(100%, 610px);
+  height: min(100%, 610px);
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
   display: block;
 }
 
 .spinLayer {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
   transform-origin: center;
-}
-
-@media (max-width: 768px) {
-  .container {
-    min-height: 0;
-    border-radius: 28px;
-    background: rgb(242, 242, 247);
-    overflow: hidden;
-  }
-
-  .background {
-    background: rgb(242, 242, 247);
-  }
-
-  .tabs {
-    display: none;
-  }
-
-  .content {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    align-items: stretch;
-  }
-
-  .tab {
-    min-height: 30px;
-    padding: 0 10px;
-    font-size: 11px;
-  }
-
-  .wheelWrapper {
-    position: relative;
-    inset: auto;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    transform: none;
-  }
-
-  .wheelSvg {
-    transform: none;
-    transform-origin: center center;
-  }
-
-  .topBarWrapperVisible {
-    max-height: clamp(198px, 28dvh, 222px);
-  }
-
-  .diceDock {
-    position: relative;
-    inset: auto;
-    gap: 10px;
-    margin-bottom: max(10px, env(safe-area-inset-bottom));
-  }
-
-  .diceTray {
-    gap: 8px;
-  }
-
-  .die {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-  }
-
-  .pip {
-    width: 7px;
-    height: 7px;
-  }
-
-  .pip1 { left: 10px; top: 10px; }
-  .pip3 { right: 10px; top: 10px; }
-  .pip7 { left: 10px; bottom: 10px; }
-  .pip9 { right: 10px; bottom: 10px; }
-
-  .rollButton {
-    min-width: 178px;
-    min-height: 52px;
-    margin-bottom: 0;
-    padding: 0 24px;
-    border-radius: 28px;
-    font-size: 18px;
-  }
 }
 
 .rollButton {
@@ -229,9 +155,9 @@
   transition: transform 0.2s ease, background 0.2s ease;
   position: relative;
   z-index: 1;
-  margin-bottom: 12px;
+  margin: 0;
   flex-shrink: 0;
-  max-width: min(560px, calc(100vw - 32px));
+  max-width: min(560px, calc(100% - 32px));
   white-space: normal;
 }
 
@@ -258,7 +184,9 @@
   display: grid;
   justify-items: center;
   gap: 8px;
-  margin-bottom: 20px;
+  width: 100%;
+  margin: 0;
+  padding: 0 16px 12px;
   flex-shrink: 0;
 }
 
@@ -330,6 +258,48 @@
 }
 
 @media (max-width: 768px) {
+  .container {
+    border-radius: 28px;
+    background: rgb(242, 242, 247);
+  }
+
+  .background {
+    background: rgb(242, 242, 247);
+  }
+
+  .tabs {
+    display: none;
+  }
+
+  .content {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+
+  .tab {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .wheelWrapper {
+    position: relative;
+    inset: auto;
+    height: auto;
+    overflow: hidden;
+    transform: none;
+  }
+
+  .wheelSvg {
+    transform: none;
+    transform-origin: center center;
+  }
+
+  .topBarWrapperVisible {
+    max-height: clamp(198px, 28dvh, 222px);
+  }
+
   .rollButton {
     min-width: 178px;
     min-height: 52px;
@@ -340,10 +310,8 @@
   }
 
   .diceDock {
-    position: relative;
-    inset: auto;
     gap: 10px;
-    margin-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
   .diceTray {
@@ -379,7 +347,7 @@
   }
 
   .diceDock {
-    margin-bottom: 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
   .rollButton {

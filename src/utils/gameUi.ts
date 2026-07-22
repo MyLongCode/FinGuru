@@ -2,6 +2,24 @@ export function isValidMoneyAmount(amount: number, maximum: number): boolean {
   return Number.isInteger(amount) && amount >= 1 && amount <= maximum
 }
 
+export function sanitizeMoneyInput(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  return digits.replace(/^0+(?=\d)/, '')
+}
+
+export function canPlayerRoll(
+  phase: string | undefined,
+  currentPlayerId: string | undefined,
+  playerId: string,
+  isSpectator: boolean,
+  skipNextTurn = false,
+): boolean {
+  return !isSpectator
+    && !skipNextTurn
+    && phase === 'playing'
+    && currentPlayerId === playerId
+}
+
 export function buildCellPath(start: number, steps: number, trackSize: number): number[] {
   if (!Number.isInteger(steps) || steps <= 0 || !Number.isInteger(trackSize) || trackSize <= 0) {
     return []

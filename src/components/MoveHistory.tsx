@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import styles from './MoveHistory.module.css'
 
 export interface FinancialRow {
@@ -13,6 +12,15 @@ export interface DealCardData {
   title: string
   description: string
   price: string
+  cardType?: string
+  dealType?: string
+  cost?: number
+  cashFlow?: number
+  assetValue?: number
+  liabilityValue?: number
+  offerPrice?: number
+  saleRange?: string
+  logic?: string
 }
 
 export interface MoveEntry {
@@ -26,6 +34,8 @@ export interface MoveEntry {
   action: string
   actionColor: string
   finances: FinancialRow[]
+  card?: DealCardData
+  /** @deprecated Kept for existing Storybook fixtures. */
   dealCard?: DealCardData
   turnNumber?: number
 }
@@ -33,6 +43,7 @@ export interface MoveEntry {
 interface MoveHistoryProps {
   title: string
   entries: MoveEntry[]
+  onOpenCard?: (card: DealCardData) => void
 }
 
 interface MoveGroup {
@@ -74,34 +85,12 @@ function buildGroups(title: string, entries: MoveEntry[]): MoveGroup[] {
   }, [])
 }
 
-function DealCard({ card }: { card: DealCardData }) {
-  const [expanded, setExpanded] = useState(false)
-
+function CardButton({ card, onOpen }: { card: DealCardData; onOpen?: (card: DealCardData) => void }) {
   return (
-    <div className={styles.dealCard}>
-      <button
-        className={styles.dealHeader}
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className={styles.dealHeaderText}>
-          <span className={styles.dealTitle}>{card.title}</span>
-        </div>
-        <span className={`${styles.dealArrow} ${expanded ? styles.dealArrowUp : ''}`}>⌄</span>
-      </button>
-      {expanded && (
-        <div className={styles.dealDetails}>
-          {card.price && (
-            <div className={styles.dealPriceRow}>
-              <span className={styles.dealPriceLabel}>Цена</span>
-              <span className={styles.dealPriceValue}>{card.price}</span>
-            </div>
-          )}
-          {card.description && <p className={styles.dealDescription}>{card.description}</p>}
-        </div>
-      )}
-    </div>
+    <button className={styles.openCardButton} type="button" onClick={() => onOpen?.(card)}>
+      <span>{card.title}</span>
+      <strong>Открыть карточку</strong>
+    </button>
   )
 }
 
@@ -110,8 +99,8 @@ function FinancialRows({ rows }: { rows: FinancialRow[] }) {
 
   return (
     <div className={styles.finances}>
-      {rows.map((row, i) => (
-        <div key={i} className={styles.financeRow}>
+      {rows.map((row, index) => (
+        <div key={index} className={styles.financeRow}>
           <span className={styles.financeLabel}>{row.label}</span>
           <div className={styles.financeValues}>
             <span className={styles.financeChange} style={{ color: row.changeColor }}>
@@ -128,7 +117,9 @@ function FinancialRows({ rows }: { rows: FinancialRow[] }) {
   )
 }
 
-function HistoryEntry({ entry }: { entry: MoveEntry }) {
+function HistoryEntry({ entry, onOpenCard }: { entry: MoveEntry; onOpenCard?: (card: DealCardData) => void }) {
+  const card = entry.card ?? entry.dealCard
+
   return (
     <article className={styles.entry}>
       <div className={styles.playerRow}>
@@ -153,13 +144,12 @@ function HistoryEntry({ entry }: { entry: MoveEntry }) {
       </div>
 
       <FinancialRows rows={entry.finances} />
-
-      {entry.dealCard && <DealCard card={entry.dealCard} />}
+      {card && <CardButton card={card} onOpen={onOpenCard} />}
     </article>
   )
 }
 
-export default function MoveHistory({ title, entries }: MoveHistoryProps) {
+export default function MoveHistory({ title, entries, onOpenCard }: MoveHistoryProps) {
   const groups = buildGroups(title, entries)
 
   return (
@@ -174,6 +164,7 @@ export default function MoveHistory({ title, entries }: MoveHistoryProps) {
                   <HistoryEntry
                     key={entry.key ?? `${group.label}-${entry.playerName}-${entry.time}-${entryIndex}`}
                     entry={entry}
+                    onOpenCard={onOpenCard}
                   />
                 ))}
               </div>

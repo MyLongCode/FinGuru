@@ -10,7 +10,8 @@
 
 .card {
   width: 366px;
-  aspect-ratio: 2/3;
+  height: 603px;
+  aspect-ratio: 366 / 603;
   border-radius: 24px;
   padding: 20px 24px;
   background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%), #EC422E;
@@ -20,6 +21,15 @@
   gap: 32px;
   box-sizing: border-box;
   justify-content: space-between;
+  overflow-y: auto;
+}
+
+@media (max-width: 420px), (max-height: 650px) {
+  .overlay { padding: 16px; box-sizing: border-box; }
+  .card {
+    width: min(366px, 100%, calc(60.6965dvh - 19.423px));
+    height: auto;
+  }
 }
 
 .content {
