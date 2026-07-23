@@ -1460,13 +1460,28 @@
   font-weight: 700;
 }
 
-.floatingAcknowledgement {
-  position: fixed;
-  left: 50%;
-  bottom: 20px;
-  z-index: 100;
-  width: min(334px, calc(100% - 32px));
-  transform: translateX(-50%);
+.cardOverlayStack {
+  width: min(756px, 100%);
+  max-height: calc(100dvh - 24px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.cardOverlayStack > .cardAcknowledgement {
+  width: min(366px, calc(100% - 32px));
+  flex: 0 0 auto;
+}
+
+.cardOverlayStackWithAcknowledgement > .eventCard,
+.cardOverlayStackWithAcknowledgement .dealDecisionCard,
+.cardOverlayStackWithAcknowledgement > .auctionCard,
+.cardOverlayStackWithAcknowledgement > .actionModal {
+  max-height: calc(100dvh - 130px);
 }
 
 .cardAcknowledgement {
@@ -2684,9 +2699,16 @@
     opacity: 0.72;
   }
 
-  .floatingAcknowledgement {
-    bottom: calc(92px + env(safe-area-inset-bottom));
-    z-index: 90;
+  .cardOverlayStack {
+    max-height: calc(100dvh - 20px);
+    gap: 8px;
+  }
+
+  .cardOverlayStackWithAcknowledgement > .eventCard,
+  .cardOverlayStackWithAcknowledgement .dealDecisionCard,
+  .cardOverlayStackWithAcknowledgement > .auctionCard,
+  .cardOverlayStackWithAcknowledgement > .actionModal {
+    max-height: calc(100dvh - 124px);
   }
 
   .historyColumn {

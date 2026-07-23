@@ -1083,19 +1083,16 @@ export default function GamePage() {
         </div>
       )}
 
-      {acknowledgementCard && gameState?.phase === 'awaitingCardClose' && !hasClosedAcknowledgement && !historyCard && (
+      {acknowledgementCard && pendingCardAcknowledgement && gameState?.phase === 'awaitingCardClose' && !hasClosedAcknowledgement && !historyCard && (
         <div className={styles.actionOverlay}>
-          <EventCard
-            card={acknowledgementCard}
-            actions={(
-              <CardAcknowledgementControls
-                acknowledgement={pendingCardAcknowledgement!}
-                currentPlayerId={sdkPlayerId}
-                disabled={isClosingCard || isSpectator}
-                onClose={handleCloseCard}
-              />
-            )}
-          />
+          <CardOverlayStack
+            acknowledgement={pendingCardAcknowledgement}
+            currentPlayerId={sdkPlayerId}
+            disabled={isClosingCard || isSpectator}
+            onClose={handleCloseCard}
+          >
+            <EventCard card={acknowledgementCard} hideActions />
+          </CardOverlayStack>
         </div>
       )}
 
@@ -1121,143 +1118,157 @@ export default function GamePage() {
 
       {readOnlyPendingDecision && !isDecisionCollapsed && (
         <div className={styles.actionOverlay}>
-          <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${styles.dealActionModal}`}>
-            {isReadOnlyDealCard && readOnlyDecisionOption ? (
-              <DealDecisionCard
-                option={readOnlyDecisionOption}
-                cash={dashboardPlayer.cash}
-                players={gamePlayers}
-                currentPlayerId={sdkPlayerId}
-                isOffer={readOnlyPendingDecision.decisionType === 'dealOffer'}
-                isPublicOffer={false}
-                disabled
-                readOnly
-                currentCashFlow={cashFlow}
-                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
-              />
-            ) : readOnlyPendingEventCard ? (
-              <EventCard card={readOnlyPendingEventCard} hideActions onMinimize={() => setCollapsedDecisionKey(decisionKey)} />
-            ) : null}
-          </div>
+          <CardOverlayStack
+            acknowledgement={pendingCardAcknowledgement}
+            currentPlayerId={sdkPlayerId}
+            disabled={isClosingCard || isSpectator}
+            onClose={handleCloseCard}
+            hidden={hasClosedAcknowledgement}
+          >
+            <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${styles.dealActionModal}`}>
+              {isReadOnlyDealCard && readOnlyDecisionOption ? (
+                <DealDecisionCard
+                  option={readOnlyDecisionOption}
+                  cash={dashboardPlayer.cash}
+                  players={gamePlayers}
+                  currentPlayerId={sdkPlayerId}
+                  isOffer={readOnlyPendingDecision.decisionType === 'dealOffer'}
+                  isPublicOffer={false}
+                  disabled
+                  readOnly
+                  currentCashFlow={cashFlow}
+                  onMinimize={() => setCollapsedDecisionKey(decisionKey)}
+                />
+              ) : readOnlyPendingEventCard ? (
+                <EventCard card={readOnlyPendingEventCard} hideActions onMinimize={() => setCollapsedDecisionKey(decisionKey)} />
+              ) : null}
+            </div>
+          </CardOverlayStack>
         </div>
       )}
 
       {pendingAuction && !isAuctionCollapsed && (
         <div className={styles.actionOverlay}>
-          <AuctionCard
-            auction={pendingAuction}
-            players={gamePlayers}
+          <CardOverlayStack
+            acknowledgement={pendingCardAcknowledgement}
             currentPlayerId={sdkPlayerId}
-            cash={dashboardPlayer.cash}
-            disabled={isSpectator || isResolvingDecision}
-            onBid={handleAuctionBid}
-            onPass={handleAuctionPass}
-            onComplete={handleAuctionComplete}
-            onMinimize={() => setCollapsedDecisionKey(auctionDecisionKey)}
-          />
+            disabled={isClosingCard || isSpectator}
+            onClose={handleCloseCard}
+            hidden={hasClosedAcknowledgement}
+          >
+            <AuctionCard
+              auction={pendingAuction}
+              players={gamePlayers}
+              currentPlayerId={sdkPlayerId}
+              cash={dashboardPlayer.cash}
+              disabled={isSpectator || isResolvingDecision}
+              onBid={handleAuctionBid}
+              onPass={handleAuctionPass}
+              onComplete={handleAuctionComplete}
+              onMinimize={() => setCollapsedDecisionKey(auctionDecisionKey)}
+            />
+          </CardOverlayStack>
         </div>
       )}
 
       {myPendingDecision && !isDecisionCollapsed && (
         <div className={styles.actionOverlay}>
-          <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
-            {myPendingDecision.expiresAt && <DecisionProgress decision={myPendingDecision} />}
-            {isDealCardDecision && dealCardOption ? (
-              <DealDecisionCard
-                option={dealCardOption}
-                cash={dashboardPlayer.cash}
-                players={gamePlayers}
-                currentPlayerId={sdkPlayerId}
-                isOffer={myPendingDecision.decisionType === 'dealOffer' || myPendingDecision.decisionType === 'dealPublicOffer'}
-                isPublicOffer={myPendingDecision.decisionType === 'dealPublicOffer'}
-                disabled={isResolvingDecision}
-                currentCashFlow={cashFlow}
-                availableCredit={availableCredit}
-                creditPayment={creditPayment}
-                projectedCreditCashFlow={projectedCreditCashFlow}
-                onAccept={(quantity) => handleDecisionAction(dealCardOption.option, dealCardOption.action, quantity)}
-                onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
-                onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
-                onSkip={() => handleDecisionAction('skip', 'skip')}
-                onTakeCredit={handleRequestCredit}
-                canMakePrimaryDecision={canMakePrimaryDecision}
-                sharedSaleOptions={sharedDecisionOptions}
-                sharedSaleCompleted={sharedDecisionCompleted}
-                onSellSharedAsset={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
-                onCompleteSharedDecision={isSharedParticipant
-                  ? () => handleDecisionAction('complete', 'completeSharedDecision')
-                  : undefined}
-                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
-                canDeclineOffer={(myPendingDecision.eligiblePlayerIds ?? []).includes(sdkPlayerId)}
-              />
-            ) : isChoosingDealDeck ? (
-              <DealDeckChoice
-                disabled={isResolvingDecision}
-                onChoose={(option) => handleDecisionAction(option, 'chooseDealDeck')}
-              />
-            ) : (
-              <EventCard
-                card={buildPendingDecisionEventCard(
-                  myPendingDecision,
-                  activeEventCard,
-                  dashboardPlayer,
-                  acknowledgementCard,
-                )}
-                onMinimize={() => setCollapsedDecisionKey(decisionKey)}
-                actions={myPendingDecision.decisionType === 'marketCard' && isSharedParticipant ? (
-                  <>
-                    <SharedSaleActions
-                      options={sharedDecisionOptions}
-                      completed={sharedDecisionCompleted}
-                      disabled={isResolvingDecision}
-                      onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
-                      onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
-                    />
-                    {canMakePrimaryDecision && (
-                      <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
-                        Пропустить рынок
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.eventActionGrid}>
-                      {(myPendingDecision.decisionOptions ?? [])
-                        .filter(option => option.option !== 'skip')
-                        .map(option => {
-                          const cannotAfford = option.action === 'buyDeal' && option.cost > dashboardPlayer.cash
-                          return (
-                            <button
-                              key={`${option.option}-${option.title}`}
-                              className={styles.eventActionButton}
-                              onClick={() => handleDecisionAction(option.option, option.action)}
-                              disabled={isResolvingDecision || cannotAfford}
-                            >
-                              <strong>{option.title}</strong>
-                              <span>{option.description}</span>
-                              {cannotAfford && <em>Не хватает {formatMoney(option.cost - dashboardPlayer.cash)}</em>}
-                            </button>
-                          )
-                        })}
-                    </div>
-                    <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
-                      {myPendingDecision.decisionType === 'deal' ? 'Пропустить сделку' : 'Пропустить'}
-                    </button>
-                  </>
-                )}
-              />
-            )}
-          </div>
-        </div>
-      )}
-      {pendingCardAcknowledgement && (gameState?.phase !== 'awaitingCardClose' || hasClosedAcknowledgement) && !historyCard && (
-        <div className={styles.floatingAcknowledgement}>
-          <CardAcknowledgementControls
-            acknowledgement={pendingCardAcknowledgement}
+          <CardOverlayStack
+            acknowledgement={isChoosingDealDeck ? null : pendingCardAcknowledgement}
             currentPlayerId={sdkPlayerId}
             disabled={isClosingCard || isSpectator}
             onClose={handleCloseCard}
-          />
+            hidden={hasClosedAcknowledgement}
+          >
+            <div key={decisionKey ?? undefined} className={`${styles.actionModal} ${isDealCardDecision || isChoosingDealDeck || myPendingDecision ? styles.dealActionModal : ''}`}>
+              {myPendingDecision.expiresAt && <DecisionProgress decision={myPendingDecision} />}
+              {isDealCardDecision && dealCardOption ? (
+                <DealDecisionCard
+                  option={dealCardOption}
+                  cash={dashboardPlayer.cash}
+                  players={gamePlayers}
+                  currentPlayerId={sdkPlayerId}
+                  isOffer={myPendingDecision.decisionType === 'dealOffer' || myPendingDecision.decisionType === 'dealPublicOffer'}
+                  isPublicOffer={myPendingDecision.decisionType === 'dealPublicOffer'}
+                  disabled={isResolvingDecision}
+                  currentCashFlow={cashFlow}
+                  availableCredit={availableCredit}
+                  creditPayment={creditPayment}
+                  projectedCreditCashFlow={projectedCreditCashFlow}
+                  onAccept={(quantity) => handleDecisionAction(dealCardOption.option, dealCardOption.action, quantity)}
+                  onSell={(offerPrice) => handleDecisionAction(dealCardOption.option, 'sellDeal', undefined, offerPrice)}
+                  onAuction={() => handleDecisionAction('auction', 'auctionDeal')}
+                  onSkip={() => handleDecisionAction('skip', 'skip')}
+                  onTakeCredit={handleRequestCredit}
+                  canMakePrimaryDecision={canMakePrimaryDecision}
+                  sharedSaleOptions={sharedDecisionOptions}
+                  sharedSaleCompleted={sharedDecisionCompleted}
+                  onSellSharedAsset={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
+                  onCompleteSharedDecision={isSharedParticipant
+                    ? () => handleDecisionAction('complete', 'completeSharedDecision')
+                    : undefined}
+                  onMinimize={() => setCollapsedDecisionKey(decisionKey)}
+                  canDeclineOffer={(myPendingDecision.eligiblePlayerIds ?? []).includes(sdkPlayerId)}
+                />
+              ) : isChoosingDealDeck ? (
+                <DealDeckChoice
+                  disabled={isResolvingDecision}
+                  onChoose={(option) => handleDecisionAction(option, 'chooseDealDeck')}
+                />
+              ) : (
+                <EventCard
+                  card={buildPendingDecisionEventCard(
+                    myPendingDecision,
+                    activeEventCard,
+                    dashboardPlayer,
+                    acknowledgementCard,
+                  )}
+                  onMinimize={() => setCollapsedDecisionKey(decisionKey)}
+                  actions={myPendingDecision.decisionType === 'marketCard' && isSharedParticipant ? (
+                    <>
+                      <SharedSaleActions
+                        options={sharedDecisionOptions}
+                        completed={sharedDecisionCompleted}
+                        disabled={isResolvingDecision}
+                        onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
+                        onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
+                      />
+                      {canMakePrimaryDecision && (
+                        <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
+                          Пропустить рынок
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className={styles.eventActionGrid}>
+                        {(myPendingDecision.decisionOptions ?? [])
+                          .filter(option => option.option !== 'skip')
+                          .map(option => {
+                            const cannotAfford = option.action === 'buyDeal' && option.cost > dashboardPlayer.cash
+                            return (
+                              <button
+                                key={`${option.option}-${option.title}`}
+                                className={styles.eventActionButton}
+                                onClick={() => handleDecisionAction(option.option, option.action)}
+                                disabled={isResolvingDecision || cannotAfford}
+                              >
+                                <strong>{option.title}</strong>
+                                <span>{option.description}</span>
+                                {cannotAfford && <em>Не хватает {formatMoney(option.cost - dashboardPlayer.cash)}</em>}
+                              </button>
+                            )
+                          })}
+                      </div>
+                      <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
+                        {myPendingDecision.decisionType === 'deal' ? 'Пропустить сделку' : 'Пропустить'}
+                      </button>
+                    </>
+                  )}
+                />
+              )}
+            </div>
+          </CardOverlayStack>
         </div>
       )}
       {amountDialog && (
@@ -1332,6 +1343,37 @@ function MoneyAmountDialog({
           <button type="button" disabled={!validAmount} onClick={() => onConfirm(amount)}>Подтвердить</button>
         </div>
       </section>
+    </div>
+  )
+}
+
+function CardOverlayStack({
+  acknowledgement,
+  currentPlayerId,
+  disabled,
+  hidden = false,
+  onClose,
+  children,
+}: {
+  acknowledgement: PendingCardAcknowledgement | null
+  currentPlayerId: string
+  disabled: boolean
+  hidden?: boolean
+  onClose: (acknowledgementId: string) => void
+  children: ReactNode
+}) {
+  const showsAcknowledgement = Boolean(acknowledgement && !hidden)
+  return (
+    <div className={`${styles.cardOverlayStack} ${showsAcknowledgement ? styles.cardOverlayStackWithAcknowledgement : ''}`}>
+      {showsAcknowledgement && acknowledgement && (
+        <CardAcknowledgementControls
+          acknowledgement={acknowledgement}
+          currentPlayerId={currentPlayerId}
+          disabled={disabled}
+          onClose={onClose}
+        />
+      )}
+      {children}
     </div>
   )
 }
