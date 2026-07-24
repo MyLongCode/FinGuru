@@ -1124,6 +1124,46 @@
   gap: 8px;
 }
 
+.eventBinaryActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.eventBuyButton,
+.eventDiceButton,
+.eventSkipButton {
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  font-family: 'Montserrat Alternates', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.eventBuyButton {
+  background: rgba(20, 122, 61, 0.94);
+}
+
+.eventDiceButton {
+  background: #6e63de;
+  box-shadow: 0 5px 14px rgba(45, 34, 145, 0.34);
+}
+
+.eventSkipButton {
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.eventBuyButton:disabled,
+.eventDiceButton:disabled,
+.eventSkipButton:disabled {
+  cursor: default;
+  opacity: 0.56;
+}
+
 .eventActionButton {
   display: flex;
   min-height: 78px;
@@ -1696,6 +1736,75 @@
   font-weight: 700;
   line-height: 17px;
   text-align: center;
+}
+
+.eventCardActions .sharedSaleSection {
+  min-height: 0;
+  max-height: min(42dvh, 300px);
+  flex: 1 1 auto;
+  color: #fff;
+}
+
+.eventCardActions:has(> .sharedSaleSection) {
+  overflow: hidden;
+}
+
+.eventCardActions .sharedSaleList {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+
+.eventCardActions .sharedSaleComplete {
+  flex: 0 0 auto;
+}
+
+.eventCardActions .sharedSaleItem {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 35, 92, 0.28);
+}
+
+.eventCardActions .sharedSaleItem > strong {
+  color: #fff;
+}
+
+.eventCardActions .sharedSaleItem > span,
+.eventCardActions .sharedSaleEmpty,
+.eventCardActions .sharedSaleQuantity {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.eventCardActions .sharedSaleQuantity input {
+  border-color: rgba(255, 255, 255, 0.56);
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 2px 8px rgba(0, 35, 92, 0.22);
+}
+
+.eventCardActions .sharedSaleItem button {
+  background: #147a3d;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(5, 63, 31, 0.28);
+}
+
+.eventCardActions .sharedSaleComplete {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.94);
+  color: #075fca;
+}
+
+.eventCardActions .sharedSaleItem button:disabled,
+.eventCardActions .sharedSaleComplete:disabled {
+  background: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.eventCardActions .sharedSaleWaiting {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
 }
 
 .dealDecisionHeader,
@@ -2646,7 +2755,16 @@
   }
 
   .turnPanel {
-    display: none;
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    z-index: 20;
+    display: grid;
+    width: calc(100% - 16px);
+    min-height: 68px;
+    margin: 16px 8px 0;
+    flex: 0 0 auto;
   }
 
   .boardColumn > :not(.turnPanel) {

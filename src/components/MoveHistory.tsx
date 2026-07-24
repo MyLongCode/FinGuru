@@ -24,6 +24,9 @@ export interface DealCardData {
   offerPrice?: number
   saleRange?: string
   logic?: string
+  cashChange?: number
+  incomeChange?: number
+  expensesChange?: number
 }
 
 export interface MoveEntry {

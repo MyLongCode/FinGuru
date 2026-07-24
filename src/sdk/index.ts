@@ -262,6 +262,9 @@ export interface FinGuruCardSnapshot {
   effect?: string
   effectNumerator?: number
   effectDenominator?: number
+  cashChange?: number
+  incomeChange?: number
+  expensesChange?: number
 }
 
 export interface PendingCardAcknowledgement {
@@ -548,6 +551,9 @@ function normalizeCardSnapshot(card: any): FinGuruCardSnapshot | null {
     effect: card.effect ?? card.Effect,
     effectNumerator: card.effectNumerator ?? card.EffectNumerator,
     effectDenominator: card.effectDenominator ?? card.EffectDenominator,
+    cashChange: card.cashChange ?? card.CashChange ?? 0,
+    incomeChange: card.incomeChange ?? card.IncomeChange ?? 0,
+    expensesChange: card.expensesChange ?? card.ExpensesChange ?? 0,
   }
 }
 

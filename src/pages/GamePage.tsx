@@ -788,6 +788,20 @@ export default function GamePage() {
     || myPendingDecision?.decisionType === 'dealOffer'
     || myPendingDecision?.decisionType === 'dealPublicOffer'
   const dealCardOption = myPendingDecision?.decisionOptions?.find(option => option.action === 'buyDeal' || option.action === 'acceptDealOffer')
+  const eventDecisionOptions = (myPendingDecision?.decisionOptions ?? [])
+    .filter(option => option.option !== 'skip')
+  const diceDecisionOption = eventDecisionOptions.length === 1
+    && (
+      eventDecisionOptions[0].effect === 'diceCheck'
+      || eventDecisionOptions[0].action === 'rollSpeedTrackDice'
+      || /брос|выброс/i.test(`${eventDecisionOptions[0].description} ${eventDecisionOptions[0].logic}`)
+    )
+    ? eventDecisionOptions[0]
+    : null
+  const simplePurchaseOption = !diceDecisionOption && eventDecisionOptions.length === 1
+    && (eventDecisionOptions[0].action === 'buyDeal' || eventDecisionOptions[0].action === 'buyFastTrackDream')
+    ? eventDecisionOptions[0]
+    : null
   const decisionKey = pendingDecisionIdentity
   const isDecisionCollapsed = Boolean(decisionKey && collapsedDecisionKey === decisionKey)
   const isAuctionCollapsed = Boolean(auctionDecisionKey && collapsedDecisionKey === auctionDecisionKey)
@@ -1096,7 +1110,7 @@ export default function GamePage() {
         </div>
       )}
 
-      {((isDecisionCollapsed && pendingDecision) || (isAuctionCollapsed && pendingAuction) || (isEventCollapsed && readOnlyEventCard)) && (
+      {!hasClosedAcknowledgement && ((isDecisionCollapsed && pendingDecision) || (isAuctionCollapsed && pendingAuction) || (isEventCollapsed && readOnlyEventCard)) && (
         <button
           type="button"
           className={styles.restoreDecisionButton}
@@ -1116,7 +1130,7 @@ export default function GamePage() {
         </div>
       )}
 
-      {readOnlyPendingDecision && !isDecisionCollapsed && (
+      {readOnlyPendingDecision && !isDecisionCollapsed && !hasClosedAcknowledgement && (
         <div className={styles.actionOverlay}>
           <CardOverlayStack
             acknowledgement={pendingCardAcknowledgement}
@@ -1147,7 +1161,7 @@ export default function GamePage() {
         </div>
       )}
 
-      {pendingAuction && !isAuctionCollapsed && (
+      {pendingAuction && !isAuctionCollapsed && !hasClosedAcknowledgement && (
         <div className={styles.actionOverlay}>
           <CardOverlayStack
             acknowledgement={pendingCardAcknowledgement}
@@ -1171,7 +1185,7 @@ export default function GamePage() {
         </div>
       )}
 
-      {myPendingDecision && !isDecisionCollapsed && (
+      {myPendingDecision && !isDecisionCollapsed && !hasClosedAcknowledgement && (
         <div className={styles.actionOverlay}>
           <CardOverlayStack
             acknowledgement={isChoosingDealDeck ? null : pendingCardAcknowledgement}
@@ -1233,12 +1247,51 @@ export default function GamePage() {
                         onSell={(saleOption, quantity) => handleDecisionAction(saleOption.option, saleOption.action, quantity)}
                         onComplete={() => handleDecisionAction('complete', 'completeSharedDecision')}
                       />
-                      {canMakePrimaryDecision && (
-                        <button className={styles.eventSecondaryButton} onClick={() => handleDecisionAction('skip', 'skip')} disabled={isResolvingDecision}>
-                          Пропустить рынок
-                        </button>
-                      )}
                     </>
+                  ) : diceDecisionOption ? (
+                    <div className={styles.eventBinaryActions}>
+                      <button
+                        type="button"
+                        className={styles.eventDiceButton}
+                        onClick={() => handleDecisionAction(diceDecisionOption.option, 'rollSpeedTrackDice')}
+                        disabled={isResolvingDecision || diceDecisionOption.cost > dashboardPlayer.cash}
+                        title={diceDecisionOption.cost > dashboardPlayer.cash
+                          ? `Не хватает ${formatMoney(diceDecisionOption.cost - dashboardPlayer.cash)}`
+                          : `Нужно выбросить ${diceDecisionOption.effectNumerator ?? 'нужное число'} или больше`}
+                      >
+                        Бросить кубик
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.eventSkipButton}
+                        onClick={() => handleDecisionAction('skip', 'skip')}
+                        disabled={isResolvingDecision}
+                      >
+                        Пропустить
+                      </button>
+                    </div>
+                  ) : simplePurchaseOption ? (
+                    <div className={styles.eventBinaryActions}>
+                      <button
+                        type="button"
+                        className={styles.eventBuyButton}
+                        onClick={() => handleDecisionAction(simplePurchaseOption.option, simplePurchaseOption.action)}
+                        disabled={isResolvingDecision || simplePurchaseOption.cost > dashboardPlayer.cash}
+                        title={simplePurchaseOption.cost > dashboardPlayer.cash
+                          ? `Не хватает ${formatMoney(simplePurchaseOption.cost - dashboardPlayer.cash)}`
+                          : 'Купить'}
+                      >
+                        Купить
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.eventSkipButton}
+                        onClick={() => handleDecisionAction('skip', 'skip')}
+                        disabled={isResolvingDecision}
+                      >
+                        Пропустить
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <div className={styles.eventActionGrid}>
@@ -1598,6 +1651,8 @@ function SharedSaleActions({
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [hasSold, setHasSold] = useState(false)
+  const saleOptions = options.filter(option =>
+    option.action === 'sellMarketAsset' || option.action === 'sellSharedAsset')
 
   if (completed) {
     return <div className={styles.sharedSaleWaiting}>Ваш ответ принят. Ждём остальных игроков.</div>
@@ -1606,9 +1661,9 @@ function SharedSaleActions({
   return (
     <section className={styles.sharedSaleSection}>
       <h3>Продать свои активы</h3>
-      {options.length > 0 ? (
+      {saleOptions.length > 0 ? (
         <div className={styles.sharedSaleList}>
-          {options.map(option => {
+          {saleOptions.map(option => {
             const maximum = Math.max(1, option.availableQuantity || 1)
             const selectedQuantity = Math.max(1, Math.min(maximum, quantities[option.option] ?? maximum))
             const saleTotal = option.salePerUnit
@@ -2318,7 +2373,7 @@ function buildPendingDecisionEventCard(
     && (!player?.displayName || activeEventCard.playerName === player.displayName)
     ? activeEventCard
     : null
-  const sourceEventCard = matchingActiveEventCard ?? snapshotEventCard
+  const sourceEventCard = snapshotEventCard ?? matchingActiveEventCard
   const availableOptions = (decision.decisionOptions ?? [])
     .filter(option => option.option !== 'skip')
   const optionDescription = availableOptions
@@ -2461,6 +2516,9 @@ function cardSnapshotToEventCard(
     description: [card.description, ...details].filter(Boolean).join('\n\n'),
     playerName: player?.displayName ?? 'Игрок',
     playerColor: player?.color ?? '#7776dc',
+    cashChange: card.cashChange,
+    incomeChange: card.incomeChange,
+    expensesChange: card.expensesChange,
   }
 }
 
@@ -2475,6 +2533,9 @@ function historyCardToEventCard(card: DealCardData): EventCardData {
     description: [card.description, card.price ? `Цена: ${card.price}` : ''].filter(Boolean).join('\n\n'),
     playerName: 'История хода',
     playerColor: '#7776dc',
+    cashChange: card.cashChange,
+    incomeChange: card.incomeChange,
+    expensesChange: card.expensesChange,
   }
 }
 
@@ -2573,6 +2634,9 @@ function mapServerHistory(entries: FinGuruHistoryEntry[] = []) {
       offerPrice: entry.card.offerPrice,
       saleRange: entry.card.saleRange,
       logic: entry.card.logic,
+      cashChange: entry.card.cashChange || entry.cashChange,
+      incomeChange: entry.card.incomeChange || entry.incomeChange,
+      expensesChange: entry.card.expensesChange || entry.expensesChange,
     } : undefined,
     finances: [
       entry.cashChange !== 0 ? {

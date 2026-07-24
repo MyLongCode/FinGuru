@@ -83,4 +83,36 @@ describe('FinGuru game state normalization', () => {
       acknowledgementId: 'ack-1',
     }]])
   })
+
+  it('preserves monetary effects in card snapshots', () => {
+    const state = normalizeGameState({
+      RoomId: 'room-effects',
+      Settings: {},
+      Players: [],
+      Dreams: [],
+      History: [],
+      PendingCardAcknowledgement: {
+        AcknowledgementId: 'ack-effects',
+        Card: {
+          CardId: 'EVENT-COURSE',
+          Title: 'Курс повышения',
+          CardType: 'other',
+          CashChange: -500,
+          IncomeChange: 150,
+          ExpensesChange: 0,
+        },
+        PrimaryPlayerId: 'player-1',
+        RequiredPlayerIds: ['player-1'],
+        ClosedPlayerIds: [],
+        PrimaryActionCompleted: true,
+      },
+    })
+
+    expect(state?.pendingCardAcknowledgement?.card).toMatchObject({
+      cardId: 'EVENT-COURSE',
+      cashChange: -500,
+      incomeChange: 150,
+      expensesChange: 0,
+    })
+  })
 })
