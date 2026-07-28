@@ -1741,7 +1741,7 @@
 .eventCardActions .sharedSaleSection {
   min-height: 0;
   max-height: min(42dvh, 300px);
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   color: #fff;
 }
 

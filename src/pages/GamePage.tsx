@@ -1502,7 +1502,7 @@ function DecisionProgress({ decision }: { decision: NonNullable<GameState['pendi
   )
 }
 
-function EventCard({
+export function EventCard({
   card,
   actions,
   hideActions = false,
@@ -1636,7 +1636,7 @@ function DealDeckChoice({
   )
 }
 
-function SharedSaleActions({
+export function SharedSaleActions({
   options,
   completed,
   disabled,

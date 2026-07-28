@@ -62,6 +62,15 @@
   transition: transform 0.25s ease;
 }
 
+@media (min-width: 769px) {
+  .content:has(> .topBarWrapper:not(.topBarWrapperVisible)) {
+    display: grid;
+    /* Mirror the dice dock above the wheel so its center stays at the board center. */
+    grid-template-rows: 94px minmax(0, 1fr) 94px;
+    align-items: stretch;
+  }
+}
+
 .tabs {
   display: flex;
   gap: 0;

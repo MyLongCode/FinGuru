@@ -57,3 +57,17 @@ export const Default: Story = {
     rollButtonLabel: '3+4=7 | Ложа на стадионе профессиональной команды',
   },
 }
+
+export const SmallCircleCentered: Story = {
+  args: {
+    players: [
+      { id: 'p1', color: '#FFCC00', letter: 'Е', name: 'Евтеев Платон', cellIndex: 0 },
+      { id: 'p2', color: '#007AFF', letter: 'М', name: 'Михаил', cellIndex: 6 },
+    ],
+    currentPlayerId: 'p1',
+    activeTab: 'small',
+    visibleCircle: 'small',
+    diceValues: [1, 2],
+    rollButtonLabel: 'Ходит Евтеев Платон',
+  },
+}
