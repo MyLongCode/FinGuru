@@ -49,6 +49,10 @@ export interface DashboardProps {
   cash?: number
   disabled?: boolean
   assetsOnly?: boolean
+  bigCircleStartingIncome?: number
+  bigCircleIncomeGrowth?: number
+  dreamTitle?: string
+  dreamTurnsRemaining?: number | null
   accruedSalary?: number
   salaryPayoutMode?: 'automatic' | 'manual'
   onPayLiability?: (liabilityId: string) => void
@@ -262,6 +266,52 @@ function AssetsTable({ assets }: { assets: FinGuruAsset[] }) {
   )
 }
 
+function BigCircleAssetsTable({ assets }: { assets: FinGuruAsset[] }) {
+  const [expanded, setExpanded] = useState(true)
+  const incomeGrowth = assets.reduce((sum, asset) => sum + asset.cashFlow, 0)
+  const quantity = assets.reduce((sum, asset) => sum + Math.max(1, asset.quantity || 1), 0)
+
+  if (assets.length === 0) {
+    return <p className={styles.emptyText}>Активов пока нет</p>
+  }
+
+  return (
+    <div className={styles.tableGroup}>
+      <button
+        type="button"
+        className={styles.groupHeader}
+        aria-expanded={expanded}
+        onClick={() => setExpanded(current => !current)}
+      >
+        <img
+          className={`${styles.groupChevron} ${expanded ? styles.groupChevronOpen : ''}`}
+          src={chevronIcon}
+          alt=""
+        />
+        <span className={styles.groupSummary}>
+          <span>Активы</span>
+          <strong className={styles.tone_passive}>{formatCurrency(incomeGrowth)}</strong>
+          <strong className={styles.tone_income}>{quantity} шт.</strong>
+        </span>
+      </button>
+      {expanded && (
+        <div className={styles.bigCircleAssetTable}>
+          <span className={styles.tableHead}>Название</span>
+          <span className={styles.tableHead}>Прирост дохода</span>
+          <span className={styles.tableHead}>Стоимость</span>
+          {assets.map(asset => (
+            <div key={asset.id || asset.title} className={styles.tableRow}>
+              <span>{shortAssetTitle(asset)}</span>
+              <strong className={styles.tone_passive}>{formatCurrency(asset.cashFlow)}</strong>
+              <strong>{formatCurrency(asset.cost)}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function IncomeRows({
   salary,
   assets,
@@ -431,6 +481,10 @@ export default function Dashboard({
   cash = stats.cash,
   disabled = false,
   assetsOnly = false,
+  bigCircleStartingIncome = 0,
+  bigCircleIncomeGrowth = 0,
+  dreamTitle,
+  dreamTurnsRemaining,
   accruedSalary = 0,
   salaryPayoutMode = 'automatic',
   onPayLiability,
@@ -450,6 +504,7 @@ export default function Dashboard({
     : creditProjection.combinedPayment
   const canClaimSalary = salaryPayoutMode === 'manual' && accruedSalary > 0 && Boolean(onClaimSalary)
   const statusItems = statuses.slice(0, 3)
+  const isBigCircle = assetsOnly
 
   return (
     <div className={styles.container}>
@@ -462,7 +517,25 @@ export default function Dashboard({
         <img className={styles.avatarIcon} src={profileMark} alt="" />
       </div>
 
-      {!assetsOnly && (
+      {isBigCircle ? (
+        <div className={`${styles.statsSection} ${styles.bigCircleStats}`}>
+          <div className={styles.bigCircleCards}>
+            <MoneyCard label="Наличка" amount={stats.cash} tone="cash" />
+            <MoneyCard label="Начальный доход" amount={bigCircleStartingIncome} tone="cash" />
+            <MoneyCard label="Прирост дохода" amount={bigCircleIncomeGrowth} tone="passive" large />
+            <MoneyCard label="Доход" amount={stats.cashFlow} tone="flow" large />
+          </div>
+          {dreamTitle && (
+            <div className={styles.dreamCard}>
+              <span className={styles.dreamMeta}>
+                <span>Мечта</span>
+                {dreamTurnsRemaining != null && <strong>{dreamTurnsRemaining} ходов</strong>}
+              </span>
+              <strong className={styles.dreamTitle}>{dreamTitle}</strong>
+            </div>
+          )}
+        </div>
+      ) : (
         <div className={styles.statsSection}>
           <div className={styles.miniCards}>
             <MoneyCard label="Наличные" amount={stats.cash} tone="cash" />
@@ -486,15 +559,21 @@ export default function Dashboard({
         </div>
       )}
 
-      {!assetsOnly && (
-        <ProgressBar
-          bigCircleTarget={bigCircleTarget}
-          passiveIncomeProgress={passiveIncomeProgress}
-          bigCircleRemaining={bigCircleRemaining}
-        />
-      )}
+      <ProgressBar
+        bigCircleTarget={bigCircleTarget}
+        passiveIncomeProgress={passiveIncomeProgress}
+        bigCircleRemaining={bigCircleRemaining}
+        title={isBigCircle ? 'До победы' : undefined}
+      />
 
-      {!assetsOnly && statusItems.length > 0 && (
+      {isBigCircle ? (
+        <div className={styles.statusSection}>
+          <div className={styles.statusChip} style={{ background: 'rgb(50, 173, 230)' }}>
+            <span className={styles.statusLabel}>Выбор кубика</span>
+            <span className={styles.statusDescription}>постоянно</span>
+          </div>
+        </div>
+      ) : statusItems.length > 0 && (
         <div className={styles.statusSection}>
           {statusItems.map((status, index) => (
             <div key={`${status.label}-${index}`} className={styles.statusChip} style={{ background: status.bgColor }}>
@@ -510,13 +589,20 @@ export default function Dashboard({
         defaultExpanded
         summary={<SummaryStrip
           items={[
-            { label: 'Пассив. доход', value: formatCurrency(stats.passiveIncome), tone: 'passive' },
-            { label: 'Стоимость', value: formatCurrency(assetValue), tone: 'income' },
-            { label: 'Количество', value: `${assetQuantity} шт.` },
+            ...(isBigCircle
+              ? [
+                { label: 'Прирост дохода', value: formatCurrency(bigCircleIncomeGrowth), tone: 'passive' as MoneyTone },
+                { label: 'Количество', value: `${assetQuantity} шт.` },
+              ]
+              : [
+                { label: 'Пассив. доход', value: formatCurrency(stats.passiveIncome), tone: 'passive' as MoneyTone },
+                { label: 'Стоимость', value: formatCurrency(assetValue), tone: 'income' as MoneyTone },
+                { label: 'Количество', value: `${assetQuantity} шт.` },
+              ]),
           ]}
         />}
       >
-        <AssetsTable assets={assets} />
+        {isBigCircle ? <BigCircleAssetsTable assets={assets} /> : <AssetsTable assets={assets} />}
       </Section>
 
       {!assetsOnly && (

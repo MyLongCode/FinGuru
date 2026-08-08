@@ -92,6 +92,59 @@ export const Engineer: Story = {
   },
 }
 
+export const BigCircle: Story = {
+  args: {
+    playerName: 'Константин',
+    playerRole: 'Учитель',
+    moveNumber: 1,
+    stats: {
+      cash: 10_500,
+      salary: 0,
+      expenses: 0,
+      passiveIncome: 50_000,
+      cashFlow: 10_000_500,
+    },
+    bigCircleTarget: 60_400,
+    passiveIncomeProgress: 50_000,
+    bigCircleRemaining: 10_400,
+    bigCircleStartingIncome: 10_000_500,
+    bigCircleIncomeGrowth: 50_000,
+    dreamTitle: 'Ужин с президентом',
+    dreamTurnsRemaining: 5,
+    assetsOnly: true,
+    statuses: [],
+    assets: [
+      {
+        id: 'home-1',
+        title: 'Дом 3/2',
+        cardId: 'HOME-1',
+        assetType: 'realEstate',
+        cost: 10,
+        cashFlow: 280,
+        quantity: 1,
+      },
+      {
+        id: 'plex-1',
+        title: '8-плексах',
+        cardId: 'PLEX-1',
+        assetType: 'realEstate',
+        cost: 1_200_000,
+        cashFlow: 11_000,
+        quantity: 1,
+      },
+      {
+        id: 'home-2',
+        title: 'Дом 3/2',
+        cardId: 'HOME-2',
+        assetType: 'realEstate',
+        cost: 10,
+        cashFlow: 4,
+        quantity: 1,
+      },
+    ],
+  },
+}
+
 export const CollapsibleAssetGroups: Story = {
   args: {
     playerName: 'Тестовый игрок',

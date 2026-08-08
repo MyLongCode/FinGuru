@@ -71,6 +71,64 @@
   gap: 4px;
 }
 
+.bigCircleStats {
+  gap: 6px;
+}
+
+.bigCircleCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dreamCard {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0)),
+    rgb(244, 244, 245);
+  box-shadow:
+    inset 0.5px 0.5px 0 #1a1a1a,
+    inset -0.5px -0.5px 0 #1a1a1a,
+    inset 2px 2px 0.5px -1px rgba(0, 0, 0, 0.4),
+    inset -2px -2px 0.5px -1px rgba(0, 0, 0, 0.4);
+}
+
+.dreamMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(60, 60, 67, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: -0.13px;
+}
+
+.dreamMeta strong {
+  flex: 0 0 auto;
+  color: #007aff;
+  font-weight: 600;
+}
+
+.dreamTitle {
+  overflow: hidden;
+  color: #000;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 21px;
+  letter-spacing: -0.17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .miniCards {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -431,11 +489,16 @@
 
 .assetTable,
 .assetTableStock,
+.bigCircleAssetTable,
 .liabilityTable {
   display: grid;
   gap: 0;
   width: 100%;
   overflow: hidden;
+}
+
+.bigCircleAssetTable {
+  grid-template-columns: minmax(0, 1.25fr) minmax(72px, 0.8fr) minmax(76px, 0.86fr);
 }
 
 .assetTable {
@@ -484,6 +547,11 @@
 .tableRow > span:not(:first-child),
 .tableRow > strong,
 .tableRowLiability > strong {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.bigCircleAssetTable .tableHead:not(:first-child) {
   justify-content: flex-end;
   text-align: right;
 }

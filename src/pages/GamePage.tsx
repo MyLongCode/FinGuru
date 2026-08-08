@@ -837,6 +837,26 @@ export default function GamePage() {
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
   const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
+  const bigCircleStartingIncome = Math.max(
+    0,
+    dashboardPlayer.bigCircleStartingCashFlow || passiveIncome * 100,
+  )
+  const bigCircleCurrentIncome = Math.max(
+    bigCircleStartingIncome,
+    dashboardPlayer.income ?? bigCircleStartingIncome,
+  )
+  const bigCircleIncomeGrowth = Math.max(0, bigCircleCurrentIncome - bigCircleStartingIncome)
+  const dashboardTarget = dashboardPlayer.isOnBigCircle ? VICTORY_CASH_FLOW_TARGET : bigCircleTarget
+  const dashboardProgress = dashboardPlayer.isOnBigCircle ? bigCircleIncomeGrowth : passiveIncome
+  const dashboardRemaining = Math.max(0, dashboardTarget - dashboardProgress)
+  const dashboardDream = gameState?.dreams.find(dream => dream.id === dashboardPlayer.dreamId)
+  const dashboardDreamTurnsRemaining = dashboardPlayer.isOnBigCircle && dashboardDream
+    ? getForwardTrackDistance(
+      dashboardPlayer.bigPosition ?? 0,
+      getBigCircleDreamCell(Number(dashboardDream.id)),
+      48,
+    )
+    : null
   const creditProjection = getBankCreditProjection(
     dashboardPlayer.income,
     dashboardPlayer.expenses,
@@ -938,10 +958,14 @@ export default function GamePage() {
             passiveIncome,
             cashFlow,
           }}
-          bigCircleTarget={bigCircleTarget}
-          passiveIncomeProgress={passiveIncome}
-          bigCircleRemaining={bigCircleRemaining}
+          bigCircleTarget={dashboardTarget}
+          passiveIncomeProgress={dashboardProgress}
+          bigCircleRemaining={dashboardRemaining}
           assetsOnly={dashboardPlayer.isOnBigCircle}
+          bigCircleStartingIncome={bigCircleStartingIncome}
+          bigCircleIncomeGrowth={bigCircleIncomeGrowth}
+          dreamTitle={dashboardDream?.title}
+          dreamTurnsRemaining={dashboardDreamTurnsRemaining}
           statuses={statuses}
           assets={dashboardPlayer.assets ?? []}
           liabilities={dashboardPlayer.liabilities ?? []}
