@@ -755,6 +755,9 @@ export default function GamePage() {
   const winners = gamePlayers.filter(player => winnerIds.includes(player.playerId))
   const winnerNames = winners.map(player => player.displayName).join(', ')
   const amIWinner = winnerIds.includes(sdkPlayerId)
+  const winner = winners[0]
+  const winnerResult = gameState?.finalResults?.find(result => winnerIds.includes(result.playerId))
+  const winnerCash = winnerResult?.cash ?? winner?.cash
 
   const handleReturnToRoom = () => {
     window.parent.postMessage({
@@ -962,12 +965,24 @@ export default function GamePage() {
       {isSpectator && <div className={styles.spectatorBanner}>Режим наблюдателя · выберите игрока справа для просмотра</div>}
       {isGameOver && (
         <div className={styles.gameOverOverlay}>
+          <div className={styles.confetti} aria-hidden="true">
+            {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
+          </div>
           <div className={styles.gameOverModal}>
-            <h2>{amIWinner ? 'Поздравляем с победой!' : 'Игра завершена'}</h2>
-            <p className={styles.winnerAnnouncement}>
-              {winnerNames ? `Победитель: ${winnerNames}` : 'Подводим итоги партии.'}
-            </p>
-            <p>{amIWinner ? 'Вы достигли цели и победили!' : 'Вернитесь в комнату или начните новую партию.'}</p>
+            <div className={styles.victoryCrown} aria-hidden="true">🏆</div>
+            <span className={styles.victoryEyebrow}>ФИНАЛ ПАРТИИ</span>
+            <h2>{amIWinner ? 'Поздравляем с победой!' : 'У нас есть победитель!'}</h2>
+            {winner ? (
+              <div className={styles.winnerCard}>
+                <span className={styles.winnerMedal}>1</span>
+                <span className={styles.winnerAvatar}>{winner.displayName.slice(0, 1).toUpperCase()}</span>
+                <span className={styles.winnerDetails}>
+                  <strong>{winnerNames}</strong>
+                  <small>{winnerCash != null ? `Наличные: ${formatMoney(winnerCash)}` : 'Финансовая цель достигнута'}</small>
+                </span>
+              </div>
+            ) : <p className={styles.winnerAnnouncement}>Подводим итоги партии.</p>}
+            <p className={styles.victoryMessage}>{amIWinner ? 'Отличная стратегия — вы достигли цели!' : 'Поздравьте победителя и сыграйте ещё раз.'}</p>
             {isRestarting ? (
               <div className={styles.gameOverLoading}>Запускаем новую игру...</div>
             ) : (
