@@ -203,6 +203,8 @@ export function createFinGuruOperationId(action = 'operation'): string {
 export interface FinGuruGameSettings {
   diceCount: 1 | 2
   salaryPayoutMode: 'automatic' | 'manual'
+  gameMode: 'classic' | 'lightTimed' | 'lightSmallCircle'
+  lightDurationMinutes: number
 }
 
 export interface FinGuruAsset {
@@ -630,10 +632,14 @@ function normalizePendingAuction(auction: any): FinGuruAuctionState | null {
 function normalizeGameSettings(settings: any): FinGuruGameSettings {
   const diceCount = Number(settings?.diceCount ?? settings?.DiceCount ?? 2)
   const salaryPayoutMode = settings?.salaryPayoutMode ?? settings?.SalaryPayoutMode
+  const gameMode = settings?.gameMode ?? settings?.GameMode
+  const lightDurationMinutes = Number(settings?.lightDurationMinutes ?? settings?.LightDurationMinutes ?? 10)
 
   return {
     diceCount: diceCount === 1 ? 1 : 2,
     salaryPayoutMode: salaryPayoutMode === 'manual' ? 'manual' : 'automatic',
+    gameMode: gameMode === 'lightTimed' || gameMode === 'lightSmallCircle' ? gameMode : 'classic',
+    lightDurationMinutes: Math.max(1, Math.min(60, Number.isFinite(lightDurationMinutes) ? lightDurationMinutes : 10)),
   }
 }
 

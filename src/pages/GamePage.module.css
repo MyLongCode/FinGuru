@@ -1130,6 +1130,29 @@
   gap: 8px;
 }
 
+.diceChoicePanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.diceChoicePanel button {
+  min-width: 78px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: #6e63de;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.diceChoicePanel button:disabled { cursor: default; opacity: .56; }
+
 .eventBuyButton,
 .eventDiceButton,
 .eventSkipButton {
@@ -2594,6 +2617,12 @@
 .gameOverModal p {
   color: rgba(255, 255, 255, 0.76);
   line-height: 1.45;
+}
+
+.winnerAnnouncement {
+  color: #ffcc00 !important;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .gameOverActions {

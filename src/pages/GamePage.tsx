@@ -122,6 +122,7 @@ export default function GamePage() {
   const rollTimeoutRef = useRef<number | null>(null)
   const rollStartedAtRef = useRef<number>(0)
   const decisionTimeoutRef = useRef<number | null>(null)
+  const restartTimeoutRef = useRef<number | null>(null)
   const displayPositionsRef = useRef(displayPositions)
   const visualRollPlayerRef = useRef<string | null>(null)
   const pendingRollVisualRef = useRef<PendingRollVisual | null>(null)
@@ -180,6 +181,11 @@ export default function GamePage() {
     const sdk = getSdk()
 
     const unsubState = subscribeGameStateUpdate(sdk, roomId, (state) => {
+      if (state.phase !== 'gameOver') {
+        if (restartTimeoutRef.current != null) window.clearTimeout(restartTimeoutRef.current)
+        restartTimeoutRef.current = null
+        setIsRestarting(false)
+      }
       setTurnRoll(current => current?.awaitsDecision && state.turnCount > current.turnCount ? null : current)
       setGameState(state)
       const nextPositions = getPlayerPositions(state.players)
@@ -482,11 +488,27 @@ export default function GamePage() {
       setStatusMessage(message)
     })
 
+    const unsubReset = sdk.onReceiveMessage((message: { type: string }) => {
+      if (message.type !== 'finguru.gameReset' && message.type !== 'gameStarted') return
+      getGameState(sdk, roomId).then(state => {
+        if (!state) return
+        if (restartTimeoutRef.current != null) window.clearTimeout(restartTimeoutRef.current)
+        restartTimeoutRef.current = null
+        setIsRestarting(false)
+        setGameState(state)
+        applyDisplayPositions(getPlayerPositions(state.players))
+        setMoveHistory(mapServerHistory(state.history))
+        setStatusMessage(getStatusMessage(state, sdkPlayerId))
+      })
+    })
+
     return () => {
       unsubState()
       unsubDice()
       unsubCellResolved()
       unsubError()
+      if (typeof unsubReset === 'function') unsubReset()
+      if (restartTimeoutRef.current != null) window.clearTimeout(restartTimeoutRef.current)
       clearRollTimeout()
       clearDecisionTimeout()
     }
@@ -506,7 +528,7 @@ export default function GamePage() {
     setMobileView(view => (view === 'small' || view === 'big') ? nextCircle : view)
   }, [gameState, isSpectator, navigate, roleName, sdkPlayerId])
 
-  const handleRollDice = useCallback(() => {
+  const handleRollDice = useCallback((requestedDiceCount?: number) => {
     if (isRolling || !roomId || !sdkPlayerId) return
 
     clearRollTimeout()
@@ -515,7 +537,10 @@ export default function GamePage() {
     setStatusMessage('Бросаем кубики...')
 
     const sdk = getSdk()
-    const diceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
+    const hasCharityDiceChoice = (gameState?.players.find(player => player.playerId === sdkPlayerId)?.charityDiceTurnsRemaining ?? 0) > 0
+    const diceCount = hasCharityDiceChoice
+      ? Math.max(1, Math.min(3, requestedDiceCount ?? 1))
+      : gameState?.settings?.diceCount === 1 ? 1 : 2
     rollDice(sdk, roomId, sdkPlayerId, diceCount, createFinGuruOperationId('roll'))
 
     rollTimeoutRef.current = window.setTimeout(() => {
@@ -531,7 +556,7 @@ export default function GamePage() {
         rollTimeoutRef.current = null
       })
     }, 10000)
-  }, [roomId, sdkPlayerId, isRolling, clearRollTimeout, gameState?.settings?.diceCount])
+  }, [roomId, sdkPlayerId, isRolling, clearRollTimeout, gameState?.players, gameState?.settings?.diceCount])
 
   const handleDecisionAction = useCallback((option: string, action?: string, quantity?: number, offerPrice?: number) => {
     if (isResolvingDecision || !roomId || !sdkPlayerId) return
@@ -724,6 +749,12 @@ export default function GamePage() {
     })
 
   const isGameOver = gameState?.phase === 'gameOver'
+  const winnerIds = gameState?.winners?.length
+    ? gameState.winners
+    : gameState?.winner ? [gameState.winner] : []
+  const winners = gamePlayers.filter(player => winnerIds.includes(player.playerId))
+  const winnerNames = winners.map(player => player.displayName).join(', ')
+  const amIWinner = winnerIds.includes(sdkPlayerId)
 
   const handleReturnToRoom = () => {
     window.parent.postMessage({
@@ -736,6 +767,10 @@ export default function GamePage() {
     if (!isHost || isRestarting) return
     setIsRestarting(true)
     restartGame(getSdk(), roomId)
+    restartTimeoutRef.current = window.setTimeout(() => {
+      setIsRestarting(false)
+      restartTimeoutRef.current = null
+    }, 8000)
   }
   const pendingDecision = gameState?.pendingDecision ?? null
   const pendingAuction = gameState?.pendingAuction ?? null
@@ -799,7 +834,7 @@ export default function GamePage() {
     ? eventDecisionOptions[0]
     : null
   const simplePurchaseOption = !diceDecisionOption && eventDecisionOptions.length === 1
-    && (eventDecisionOptions[0].action === 'buyDeal' || eventDecisionOptions[0].action === 'buyFastTrackDream')
+    && (eventDecisionOptions[0].action === 'buyDeal' || eventDecisionOptions[0].action === 'buyFastTrackDream' || eventDecisionOptions[0].logic === 'charityDice')
     ? eventDecisionOptions[0]
     : null
   const decisionKey = pendingDecisionIdentity
@@ -833,7 +868,8 @@ export default function GamePage() {
   const charityDiceTurnsRemaining = dashboardPlayer.charityDiceTurnsRemaining ?? 0
   const configuredDiceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
   const salaryPayoutMode = gameState?.settings?.salaryPayoutMode ?? 'automatic'
-  const activeDiceCount = charityDiceTurnsRemaining > 0 ? 3 : configuredDiceCount
+  const hasCharityDiceChoice = charityDiceTurnsRemaining > 0
+  const activeDiceCount = hasCharityDiceChoice ? 3 : configuredDiceCount
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
   const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
@@ -887,8 +923,8 @@ export default function GamePage() {
       bgColor: 'rgb(74, 74, 74)',
     }] : []),
     ...(charityDiceTurnsRemaining > 0 ? [{
-      label: 'Выбор кубика',
-      description: `${charityDiceTurnsRemaining} ${getTurnWord(charityDiceTurnsRemaining)}`,
+      label: 'Выбор кубиков',
+      description: '1, 2 или 3 до конца игры',
       bgColor: 'rgb(50, 173, 230)',
     }] : []),
     ...(myPendingDecision ? [{
@@ -908,7 +944,7 @@ export default function GamePage() {
     : isGameOver
       ? 'Игра завершена'
       : isMyTurn
-        ? activeDiceCount > 2 ? 'Бросить 3 кубика' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
+        ? hasCharityDiceChoice ? 'Выберите кости' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
         : activePlayer
           ? `Ходит ${activePlayer.displayName}`
           : 'Ожидание')
@@ -927,8 +963,11 @@ export default function GamePage() {
       {isGameOver && (
         <div className={styles.gameOverOverlay}>
           <div className={styles.gameOverModal}>
-            <h2>Игра завершена</h2>
-            <p>Вернитесь в комнату или начните новую партию.</p>
+            <h2>{amIWinner ? 'Поздравляем с победой!' : 'Игра завершена'}</h2>
+            <p className={styles.winnerAnnouncement}>
+              {winnerNames ? `Победитель: ${winnerNames}` : 'Подводим итоги партии.'}
+            </p>
+            <p>{amIWinner ? 'Вы достигли цели и победили!' : 'Вернитесь в комнату или начните новую партию.'}</p>
             {isRestarting ? (
               <div className={styles.gameOverLoading}>Запускаем новую игру...</div>
             ) : (
@@ -1019,6 +1058,16 @@ export default function GamePage() {
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
           onSpinComplete={handleTopBarSpinComplete}
         />
+        {hasCharityDiceChoice && isMyTurn && (
+          <div className={styles.diceChoicePanel} aria-label="Выберите число костей">
+            <span>Сколько костей бросить?</span>
+            {[1, 2, 3].map(count => (
+              <button key={count} type="button" onClick={() => handleRollDice(count)} disabled={isRolling}>
+                {count} {count === 1 ? 'кость' : 'кости'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={styles.historyColumn}>
