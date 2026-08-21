@@ -2051,6 +2051,46 @@
   width: 100%;
 }
 
+.dealActionWaiting {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.dealActionWaiting h3,
+.dealActionWaiting p {
+  margin: 0;
+}
+
+.dealActionWaiting h3 {
+  color: rgb(0, 122, 255);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.dealActionWaiting p {
+  color: rgba(60, 60, 67, 0.76);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.dealActionWaiting button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: rgb(0, 122, 255);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .dealActionSection h3 {
   margin: 0;
   color: rgba(0, 0, 0, 0.85);

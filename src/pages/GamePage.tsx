@@ -1369,7 +1369,9 @@ export default function GamePage() {
                           ? `Не хватает ${formatMoney(simplePurchaseOption.cost - dashboardPlayer.cash)}`
                           : 'Купить'}
                       >
-                        Купить
+                        {simplePurchaseOption.logic === 'charityDice'
+                          ? `Купить за ${formatMoney(simplePurchaseOption.cost)}`
+                          : 'Купить'}
                       </button>
                       <button
                         type="button"
@@ -1874,6 +1876,7 @@ function DealDecisionCard({
   const canAcceptOffer = !isOwnPublicOffer && canMakePrimaryDecision
   const cardClass = isBigDeal ? styles.dealDecisionCardBig : styles.dealDecisionCardSmall
   const isActionsPanel = !readOnly && activePanel === 'actions'
+  const isWaitingForSharedResponses = !readOnly && !canMakePrimaryDecision && !onCompleteSharedDecision
   const dealTitle = isBigDeal ? 'Крупная сделка' : 'Мелкая сделка'
   const priceLabel = isStockDeal ? 'Итого' : 'Цена'
   const displayPrice = isStockDeal ? purchaseCost : Math.max(option.assetValue, option.cost)
@@ -1975,6 +1978,20 @@ function DealDecisionCard({
               onSell={(saleOption, quantity) => onSellSharedAsset?.(saleOption, quantity)}
               onComplete={onCompleteSharedDecision}
             />
+          )}
+
+          {isWaitingForSharedResponses && (
+            <section className={styles.dealActionWaiting}>
+              <h3>Ваше решение принято</h3>
+              <p>
+                Ждём, пока владельцы акций выберут продажу или пропуск. Карточку можно свернуть — ход продолжится после их ответов или окончания таймера.
+              </p>
+              {onMinimize && (
+                <button type="button" onClick={onMinimize}>
+                  Свернуть карточку
+                </button>
+              )}
+            </section>
           )}
 
           {canMakePrimaryDecision && availableCredit > 0 && (
