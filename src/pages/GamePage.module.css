@@ -1,6 +1,6 @@
 ﻿.gamePage {
   display: grid;
-  grid-template-columns: clamp(248px, 23.6vw, 340px) minmax(0, 1fr) clamp(280px, 20.84vw, 300px);
+  grid-template-columns: clamp(248px, 23.6vw, 340px) minmax(0, 1fr) clamp(320px, 25vw, 360px);
   height: 100dvh;
   gap: 8px;
   padding: 8px;
@@ -258,7 +258,7 @@
 
 .playerCardHeader {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
@@ -270,6 +270,10 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+}
+
+.playerCardIdentity {
+  flex: 1 1 auto;
 }
 
 .playerRoleLine,
@@ -345,7 +349,12 @@
 .playerCash {
   align-items: flex-end;
   flex: 0 0 auto;
+  max-width: 48%;
   text-align: right;
+}
+
+.playerCash strong {
+  max-width: 100%;
 }
 
 .playerProgressBlock {

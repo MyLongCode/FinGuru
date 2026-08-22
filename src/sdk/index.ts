@@ -187,6 +187,7 @@ export interface PlayerGameState {
   bigCircleStartingCashFlow?: number
   skipNextTurn: boolean
   skipTurnsRemaining: number
+  hasCharityDiceRight: boolean
   charityDiceTurnsRemaining: number
   accruedSalary: number
   achievedDreams?: number[]
@@ -457,6 +458,10 @@ function normalizePlayerGameState(player: any): PlayerGameState {
     bigCircleStartingCashFlow: player.bigCircleStartingCashFlow ?? player.BigCircleStartingCashFlow ?? 0,
     skipNextTurn: player.skipNextTurn ?? player.SkipNextTurn ?? false,
     skipTurnsRemaining: player.skipTurnsRemaining ?? player.SkipTurnsRemaining ?? 0,
+    hasCharityDiceRight: player.hasCharityDiceRight
+      ?? player.HasCharityDiceRight
+      // Backward compatibility for games saved before the explicit entitlement flag.
+      ?? (player.charityDiceTurnsRemaining ?? player.CharityDiceTurnsRemaining ?? 0) > 3,
     charityDiceTurnsRemaining: player.charityDiceTurnsRemaining ?? player.CharityDiceTurnsRemaining ?? 0,
     accruedSalary: player.accruedSalary ?? player.AccruedSalary ?? 0,
     achievedDreams: player.achievedDreams ?? player.AchievedDreams,

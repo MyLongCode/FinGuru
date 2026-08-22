@@ -528,7 +528,7 @@ export default function GamePage() {
     setMobileView(view => (view === 'small' || view === 'big') ? nextCircle : view)
   }, [gameState, isSpectator, navigate, roleName, sdkPlayerId])
 
-  const handleRollDice = useCallback((requestedDiceCount?: number) => {
+  const handleRollDice = useCallback(() => {
     if (isRolling || !roomId || !sdkPlayerId) return
 
     clearRollTimeout()
@@ -537,9 +537,13 @@ export default function GamePage() {
     setStatusMessage('Бросаем кубики...')
 
     const sdk = getSdk()
-    const hasCharityDiceChoice = (gameState?.players.find(player => player.playerId === sdkPlayerId)?.charityDiceTurnsRemaining ?? 0) > 0
-    const diceCount = hasCharityDiceChoice
-      ? Math.max(1, Math.min(3, requestedDiceCount ?? 1))
+    const charityPlayer = gameState?.players.find(player => player.playerId === sdkPlayerId)
+    const hasCharityDiceBonus = Boolean(
+      (charityPlayer?.hasCharityDiceRight || (charityPlayer?.charityDiceTurnsRemaining ?? 0) > 3)
+      && (charityPlayer.isOnBigCircle || charityPlayer.charityDiceTurnsRemaining > 0),
+    )
+    const diceCount = hasCharityDiceBonus
+      ? 3
       : gameState?.settings?.diceCount === 1 ? 1 : 2
     rollDice(sdk, roomId, sdkPlayerId, diceCount, createFinGuruOperationId('roll'))
 
@@ -714,6 +718,7 @@ export default function GamePage() {
     isOnBigCircle: false,
     skipNextTurn: false,
     skipTurnsRemaining: 0,
+    hasCharityDiceRight: false,
     charityDiceTurnsRemaining: 0,
     accruedSalary: 0,
   }
@@ -829,6 +834,7 @@ export default function GamePage() {
   const eventDecisionOptions = (myPendingDecision?.decisionOptions ?? [])
     .filter(option => option.option !== 'skip')
   const diceDecisionOption = eventDecisionOptions.length === 1
+    && eventDecisionOptions[0].logic !== 'charityDice'
     && (
       eventDecisionOptions[0].effect === 'diceCheck'
       || eventDecisionOptions[0].action === 'rollSpeedTrackDice'
@@ -871,8 +877,9 @@ export default function GamePage() {
   const charityDiceTurnsRemaining = dashboardPlayer.charityDiceTurnsRemaining ?? 0
   const configuredDiceCount = gameState?.settings?.diceCount === 1 ? 1 : 2
   const salaryPayoutMode = gameState?.settings?.salaryPayoutMode ?? 'automatic'
-  const hasCharityDiceChoice = charityDiceTurnsRemaining > 0
-  const activeDiceCount = hasCharityDiceChoice ? 3 : configuredDiceCount
+  const hasCharityDiceBonus = (dashboardPlayer.hasCharityDiceRight || charityDiceTurnsRemaining > 3)
+    && (dashboardPlayer.isOnBigCircle || charityDiceTurnsRemaining > 0)
+  const activeDiceCount = hasCharityDiceBonus ? 3 : configuredDiceCount
   const isFinanciallyFree = dashboardPlayer.expenses > 0 && passiveIncome > dashboardPlayer.expenses
   const bigCircleTarget = Math.max(1, dashboardPlayer.expenses + 1)
   const bigCircleRemaining = Math.max(0, bigCircleTarget - passiveIncome)
@@ -925,9 +932,11 @@ export default function GamePage() {
       description: `${skipTurnsRemaining} ${getTurnWord(skipTurnsRemaining)} пропускаешь`,
       bgColor: 'rgb(74, 74, 74)',
     }] : []),
-    ...(charityDiceTurnsRemaining > 0 ? [{
-      label: 'Выбор кубиков',
-      description: '1, 2 или 3 до конца игры',
+    ...(hasCharityDiceBonus ? [{
+      label: 'Право на 3 кубика',
+      description: dashboardPlayer.isOnBigCircle
+        ? '3 кубика до конца игры'
+        : `Осталось ходов: ${charityDiceTurnsRemaining}`,
       bgColor: 'rgb(50, 173, 230)',
     }] : []),
     ...(myPendingDecision ? [{
@@ -947,7 +956,7 @@ export default function GamePage() {
     : isGameOver
       ? 'Игра завершена'
       : isMyTurn
-        ? hasCharityDiceChoice ? 'Выберите кости' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
+        ? hasCharityDiceBonus ? 'Бросить 3 кубика' : activeDiceCount === 1 ? 'Бросить 1 кубик' : 'Бросить кубики'
         : activePlayer
           ? `Ходит ${activePlayer.displayName}`
           : 'Ожидание')
@@ -1073,16 +1082,6 @@ export default function GamePage() {
           onRollDice={isMyTurn && !isRolling ? handleRollDice : undefined}
           onSpinComplete={handleTopBarSpinComplete}
         />
-        {hasCharityDiceChoice && isMyTurn && (
-          <div className={styles.diceChoicePanel} aria-label="Выберите число костей">
-            <span>Сколько костей бросить?</span>
-            {[1, 2, 3].map(count => (
-              <button key={count} type="button" onClick={() => handleRollDice(count)} disabled={isRolling}>
-                {count} {count === 1 ? 'кость' : 'кости'}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className={styles.historyColumn}>
@@ -1370,7 +1369,7 @@ export default function GamePage() {
                           : 'Купить'}
                       >
                         {simplePurchaseOption.logic === 'charityDice'
-                          ? `Купить за ${formatMoney(simplePurchaseOption.cost)}`
+                          ? `Купить право на 3 кубика за ${formatMoney(simplePurchaseOption.cost)}`
                           : 'Купить'}
                       </button>
                       <button
